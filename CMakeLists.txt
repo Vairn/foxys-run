@@ -136,71 +136,36 @@ endif()
 set(TARGET_NAME ${PROJECT_NAME_LOWER})
 
 set(GAME_SOURCES ${SOURCES})
-list(FILTER GAME_SOURCES EXCLUDE REGEX "[/\\\\]intro[/\\\\]")
-
-set(INTRO_SOURCES
-	${PROJECT_SOURCE_DIR}/src/intro/main_intro.c
-	${PROJECT_SOURCE_DIR}/src/intro/intro.c
-	${PROJECT_SOURCE_DIR}/src/intro/splash.c
-	${PROJECT_SOURCE_DIR}/src/intro/slicecop.c
-	${PROJECT_SOURCE_DIR}/src/ui/font.c
-	${PROJECT_SOURCE_DIR}/src/assets/assets.c
-	${PROJECT_SOURCE_DIR}/src/audio/music.c
-	${PROJECT_SOURCE_DIR}/src/debug/serial_log.c
-)
 
 # Bartman produces a raw ELF; elf2hunk converts it to a bootable Amiga hunk exe.
 if(ELF2HUNK AND NOT ACE_HOST)
 	set(GAME_EXECUTABLE ${TARGET_NAME}.elf)
 	set(GAME_OUTPUT_EXECUTABLE ${TARGET_NAME}.exe)
-	set(INTRO_EXECUTABLE sunnyintro.elf)
 	add_executable(${GAME_EXECUTABLE} ${GAME_SOURCES} ${HEADERS})
-	add_executable(${INTRO_EXECUTABLE} ${INTRO_SOURCES} ${HEADERS})
-	target_compile_definitions(${INTRO_EXECUTABLE} PRIVATE SUNNY_INTRO)
 	# Release hunks do not need HUNK_SYMBOL; LoadSeg skips it and Bartman
 	# debug reads the ELF. -s drops ~20 KB of names from the floppy image.
 	set(_ELF2HUNK_CMD ${ELF2HUNK} ${GAME_EXECUTABLE} ${GAME_OUTPUT_EXECUTABLE})
-	set(_ELF2HUNK_INTRO ${ELF2HUNK} ${INTRO_EXECUTABLE} sunnyintro.exe)
 	if(CMAKE_BUILD_TYPE MATCHES "^(Release|MinSizeRel)$")
 		list(APPEND _ELF2HUNK_CMD -s)
-		list(APPEND _ELF2HUNK_INTRO -s)
 	endif()
 	add_custom_command(
 		TARGET ${GAME_EXECUTABLE} POST_BUILD
 		COMMAND ${_ELF2HUNK_CMD}
 		COMMENT "Converting ELF to Amiga hunk executable"
 	)
-	add_custom_command(
-		TARGET ${INTRO_EXECUTABLE} POST_BUILD
-		COMMAND ${_ELF2HUNK_INTRO}
-		COMMENT "Converting intro ELF to Amiga hunk executable"
-	)
 else()
 	set(GAME_EXECUTABLE ${TARGET_NAME})
 	set(GAME_OUTPUT_EXECUTABLE ${TARGET_NAME})
-	set(INTRO_EXECUTABLE sunnyintro)
 	add_executable(${GAME_EXECUTABLE} ${GAME_SOURCES} ${HEADERS})
-	add_executable(${INTRO_EXECUTABLE} ${INTRO_SOURCES} ${HEADERS})
-	target_compile_definitions(${INTRO_EXECUTABLE} PRIVATE SUNNY_INTRO)
 endif()
 
 target_link_libraries(${GAME_EXECUTABLE} ace)
-target_link_libraries(${INTRO_EXECUTABLE} ace)
 
 if(ACE_HOST)
 	if(NOT MSVC AND NOT APPLE)
 		# Route the game's libc allocations through AllocMem() too, so the host's
 		# CHIP/FAST budget reflects what the Amiga build would really use.
 		target_link_options(${GAME_EXECUTABLE} PRIVATE
-			"LINKER:--wrap,malloc"
-			"LINKER:--wrap,calloc"
-			"LINKER:--wrap,realloc"
-			"LINKER:--wrap,free"
-			"LINKER:--wrap,strdup"
-			"LINKER:--wrap,_strdup"
-			"LINKER:--wrap,_msize"
-		)
-		target_link_options(${INTRO_EXECUTABLE} PRIVATE
 			"LINKER:--wrap,malloc"
 			"LINKER:--wrap,calloc"
 			"LINKER:--wrap,realloc"
@@ -216,21 +181,13 @@ if(ACE_HOST)
 			OUTPUT_NAME FoxysRun
 			WIN32_EXECUTABLE TRUE
 		)
-		set_target_properties(${INTRO_EXECUTABLE} PROPERTIES
-			OUTPUT_NAME FoxysIntro
-			WIN32_EXECUTABLE TRUE
-		)
 	endif()
 
-	# Both programs open "data.pak" in the working directory. The game archive
-	# is staged under that name. intro.pak is the intro disk's archive; a boot
-	# of the intro uses that file as data.pak.
+	# The game opens "data.pak" in the working directory.
 	add_custom_command(
 		TARGET ${GAME_EXECUTABLE} POST_BUILD
 		COMMAND ${CMAKE_COMMAND} -E copy_if_different
 			${PROJECT_SOURCE_DIR}/dist/data.pak $<TARGET_FILE_DIR:${GAME_EXECUTABLE}>/data.pak
-		COMMAND ${CMAKE_COMMAND} -E copy_if_different
-			${PROJECT_SOURCE_DIR}/dist/intro.pak $<TARGET_FILE_DIR:${GAME_EXECUTABLE}>/intro.pak
 		COMMENT "Staging prebuilt pak files next to the host executable"
 	)
 

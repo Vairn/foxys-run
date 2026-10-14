@@ -79,7 +79,6 @@ cmake --build .
 if errorlevel 1 exit /b 1
 
 copy /y "%ROOT%\dist\data.pak" "%BUILD_DIR%\data.pak" >nul
-copy /y "%ROOT%\dist\intro.pak" "%BUILD_DIR%\intro.pak" >nul
 
 cd /d "%ROOT%"
 

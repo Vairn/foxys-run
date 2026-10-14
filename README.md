@@ -1,8 +1,8 @@
 # Foxy's Run
 
-An Amiga 500 (OCS) platformer. This repository is the game and intro source, plus the packed data those programs load. It is enough to compile `sunnyland` and `sunnyintro`.
+An Amiga 500 (OCS) platformer. This repository is the game source, plus the packed data it loads. It is enough to compile `sunnyland`.
 
-The playfield art comes from the [Sunny Land](https://ansimuz.itch.io/sunny-land-pixel-game-art) pack by Ansimuz. That pack is not in this repository. `dist/data.pak` and `dist/intro.pak` are the already converted, compressed archives.
+The playfield art comes from the [Sunny Land](https://ansimuz.itch.io/sunny-land-pixel-game-art) pack by Ansimuz. That pack is not in this repository. `dist/data.pak` is the already converted, compressed archive.
 
 The engine under `deps/ace` is [ACE](https://github.com/AmigaPorts/ACE), included here under the Mozilla Public License 2.0 (`deps/ace/LICENSE`).
 
@@ -17,9 +17,8 @@ includes/       Headers, same module folders as src/
   sprites/      Generated sprite frame sizes
   levels/       Level entity type constants
   tiles/        Tile-collision constants
-src/            Game and intro sources (C11)
+src/            Game sources (C11)
   game/         Play loop, screens, session, shared constants
-  intro/        Intro disk: splash and copper slices
   player/       Player
   world/        Levels, terrain, collision table, sky
   entities/     Monsters, pickups, shots, effects
@@ -33,7 +32,6 @@ build.bat       Cross-compile with the Bartman m68k toolchain
 build-host.bat  Native build (ACE_HOST, SDL)
 launch.bat      Boot the Amiga build in WinUAE
 dist/data.pak   Game archive (levels, graphics, music, sound effects)
-dist/intro.pak  Intro archive
 deps/ace/       ACE, with the changes this game builds against
 ```
 
@@ -66,12 +64,10 @@ build.bat
 ```text
 build\sunnyland.elf
 build\sunnyland.exe
-build\sunnyintro.exe
 build\data.pak
-build\intro.pak
 ```
 
-Both programs open a file named `data.pak`. The copy in `build\` is the game. An intro disk uses `intro.pak` under that name.
+The game opens `data.pak` from the build directory.
 
 Native host:
 

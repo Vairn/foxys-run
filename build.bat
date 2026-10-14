@@ -15,7 +15,7 @@ rem   build.bat lite     -> Release (-O2),  ACE_DEBUG=OFF, game logWrite() to
 rem                         serial only, output in build-serial-lite\
 rem
 rem Graphics, levels, music, and sound effects are already packed in
-rem dist\data.pak (the game) and dist\intro.pak (the intro disk).
+rem dist\data.pak (levels, graphics, music, sound effects).
 rem
 rem Toolchain:
 rem   BART                   Bartman opt directory (contains bin\m68k-amiga-elf-gcc.exe)
@@ -130,10 +130,9 @@ cmake --build .
 if errorlevel 1 exit /b 1
 
 copy /y "%ROOT%\dist\data.pak" "%BUILD_DIR%\data.pak" >nul
-copy /y "%ROOT%\dist\intro.pak" "%BUILD_DIR%\intro.pak" >nul
 
 if not exist "%BUILD_DIR%\s" mkdir "%BUILD_DIR%\s"
-> "%BUILD_DIR%\s\startup-sequence" echo DH0:sunnyland
+> "%BUILD_DIR%\s\startup-sequence" echo sunnyland.exe
 
 cd /d "%ROOT%"
 
@@ -141,12 +140,9 @@ echo.
 echo Built:
 echo   %BUILD_DIR%\sunnyland.elf
 echo   %BUILD_DIR%\sunnyland.exe
-echo   %BUILD_DIR%\sunnyintro.exe
 echo   %BUILD_DIR%\data.pak
-echo   %BUILD_DIR%\intro.pak
 echo.
-echo The game opens data.pak. The intro program does too, so an intro disk
-echo uses intro.pak under that name.
+echo The game opens data.pak.
 echo.
 endlocal
 exit /b 0

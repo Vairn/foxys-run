@@ -1,9 +1,7 @@
 #include "audio/music.h"
 #include "assets/assets.h"
-#ifndef SUNNY_INTRO
 #include "world/level.h"
 #include "audio/sfx.h"
-#endif
 
 #include "debug/serial_log.h"
 #include <ace/managers/ptplayer.h>
@@ -77,9 +75,7 @@ static void musicStart(const char *szModPath, const char *szPackPath) {
 	s_ubActive = 1;
 	/* Channels 0–2 for music; channel 3 is the SFX voice. */
 	ptplayerSetMusicChannelMask(0x07);
-#ifndef SUNNY_INTRO
 	sfxLoad();
-#endif
 	ptplayerConfigureSongRepeat(1, 0);
 	s_pPack = sunnyLoadSamplePack(szPackPath);
 	s_pMod = sunnyLoadMod(szModPath);
@@ -104,7 +100,6 @@ void musicStartTitle(void) {
 	musicStart(szMod, szPack);
 }
 
-#ifndef SUNNY_INTRO
 void musicStartForLevel(void) {
 	const tLevelDef *pLevel = levelGetCurrent();
 	const char *szMod = (pLevel && pLevel->szMusicPath[0])
@@ -116,4 +111,3 @@ void musicStartForLevel(void) {
 	}
 	musicStart(szMod, szPack);
 }
-#endif
