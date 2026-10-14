@@ -53,7 +53,7 @@
 #define HB_H 25
 
 //----------------------------------------------------------------- ANIMATIONS
-// Indices into s_player_Anim[] (see data/sprites/player.h).
+// Indices into s_player_Anim[] (see includes/sprites/player.h).
 
 #define ANIM_IDLE 0
 #define ANIM_RUN 1

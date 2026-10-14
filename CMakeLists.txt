@@ -122,14 +122,9 @@ set(ACE_TILEBUFFER_TILE_TYPE UWORD CACHE STRING "Tilebuffer: Use UWORD for large
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS src/*.c)
 file(GLOB_RECURSE HEADERS CONFIGURE_DEPENDS includes/*.h)
 
-# Generated game data compiled into the binary (collision LUT).
-# Tile maps + entities are loaded at runtime from data/levels/levelN.dat
-# (campaign discovered at startup; optional per-level tileset/palette).
-list(APPEND SOURCES ${PROJECT_SOURCE_DIR}/data/tiles/tilecollision.c)
-
+# Tile maps and entities load at runtime from data/levels/levelN.dat inside
+# the pak (campaign discovered at startup; optional per-level tileset/palette).
 include_directories(${PROJECT_SOURCE_DIR}/includes)
-# Generated asset headers live under data/ (sprites/*.h, tiles/*.h, levels/*.h).
-include_directories(${PROJECT_SOURCE_DIR}/data)
 
 add_subdirectory(deps/ace ace)
 include_directories(${PROJECT_SOURCE_DIR}/deps/ace/include)

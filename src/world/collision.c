@@ -1,7 +1,7 @@
 /* Fast tile-collision map + shared span probes.
  *
  * See collision.h. Built once per level from the tilebuffer and the generated
- * compact-tileset tables in data/tiles/tilecollision.c.
+ * compact-tileset tables in src/world/tilecollision.c.
  */
 #include "world/collision.h"
 #include "assets/assets.h"
@@ -91,9 +91,14 @@ void collisionInit(tTileBufferManager *pTileBuffer) {
 			ubIdxToCol[i] = ubType;
 			continue;
 		}
+		const unsigned char *pRow = tileSlopeRow(i);
 		UBYTE s;
+		if(!pRow) {
+			ubIdxToCol[i] = COL_SOLID;
+			continue;
+		}
 		for(s = 0; s < ubShapes; ++s) {
-			if(!memcmp(g_ubColSlopeY[s], s_ubSlopeY[i], COL_TILE_SIZE)) {
+			if(!memcmp(g_ubColSlopeY[s], pRow, COL_TILE_SIZE)) {
 				break;
 			}
 		}
@@ -102,7 +107,7 @@ void collisionInit(tTileBufferManager *pTileBuffer) {
 				ubIdxToCol[i] = COL_SOLID;
 				continue;
 			}
-			memcpy(g_ubColSlopeY[s], s_ubSlopeY[i], COL_TILE_SIZE);
+			memcpy(g_ubColSlopeY[s], pRow, COL_TILE_SIZE);
 			++ubShapes;
 		}
 		ubIdxToCol[i] = (UBYTE)(COL_SLOPE + s);

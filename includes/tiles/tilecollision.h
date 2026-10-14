@@ -42,7 +42,8 @@
 #define TILECOLLISION_COUNT 141
 
 extern const unsigned char s_ubTileCollision[TILECOLLISION_COUNT];
-/* Per-tile slope height from tile top (0..16) at each X. 16 = next tile. */
-extern const unsigned char s_ubSlopeY[TILECOLLISION_COUNT][16];
+/* Height from the tile top (0..16) at each X for a slope tile. 16 = next tile.
+ * NULL when uwTile is not a slope. Repeated tiles share one profile. */
+const unsigned char *tileSlopeRow(unsigned uwTile);
 
 #endif /* _TILECOLLISION_H_ */

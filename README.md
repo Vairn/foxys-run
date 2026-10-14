@@ -14,11 +14,14 @@ Amiga 500 / A500+, OCS, 68000, 512 KB chip RAM + 512 KB slow RAM, PAL 320×256.
 
 ```text
 includes/       Headers, same module folders as src/
+  sprites/      Generated sprite frame sizes
+  levels/       Level entity type constants
+  tiles/        Tile-collision constants
 src/            Game and intro sources (C11)
   game/         Play loop, screens, session, shared constants
   intro/        Intro disk: splash and copper slices
   player/       Player
-  world/        Levels, terrain, collision, sky
+  world/        Levels, terrain, collision table, sky
   entities/     Monsters, pickups, shots, effects
   props/        Doors, switches, platforms, trampolines, vines, signs
   ui/           HUD, overlay, font
@@ -32,7 +35,6 @@ launch.bat      Boot the Amiga build in WinUAE
 dist/data.pak   Game archive (levels, graphics, music, sound effects)
 dist/intro.pak  Intro archive
 deps/ace/       ACE, with the changes this game builds against
-data/           Headers and the tile-collision table compiled into the binary
 ```
 
 ## Prerequisites
