@@ -1,0 +1,43 @@
+{
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"type": "amiga",
+			"request": "launch",
+			"name": "Foxy's Run A1200",
+			"config": "A1200",
+			"program": "${workspaceFolder}/build/sunnyland",
+			"kickstart": "C:\\Users\\Public\\Documents\\Amiga Files\\Shared\\rom\\amiga-os-310-a1200.rom",
+			"internalConsoleOptions": "openOnSessionStart",
+			"preLaunchTask": "amiga: build"
+		},
+		{
+			"type": "amiga",
+			"request": "launch",
+			"name": "Foxy's Run A1200 (file log, ACE_DEBUG)",
+			"config": "A1200",
+			"program": "${workspaceFolder}/build-file/sunnyland",
+			"kickstart": "C:\\Users\\Public\\Documents\\Amiga Files\\Shared\\rom\\amiga-os-310-a1200.rom",
+			"internalConsoleOptions": "openOnSessionStart",
+			"preLaunchTask": "amiga: build (file log, ACE_DEBUG)"
+		},
+		{
+			"type": "amiga",
+			"request": "launch",
+			"name": "Foxy's Run A1200 (file log, no rebuild)",
+			"config": "A1200",
+			"program": "${workspaceFolder}/build-file/sunnyland",
+			"kickstart": "C:\\Users\\Public\\Documents\\Amiga Files\\Shared\\rom\\amiga-os-310-a1200.rom",
+			"internalConsoleOptions": "openOnSessionStart"
+		},
+		{
+			"type": "amiga",
+			"request": "launch",
+			"name": "Foxy's Run A1200 (no rebuild)",
+			"config": "A1200",
+			"program": "${workspaceFolder}/build/sunnyland",
+			"kickstart": "C:\\Users\\Public\\Documents\\Amiga Files\\Shared\\rom\\amiga-os-310-a1200.rom",
+			"internalConsoleOptions": "openOnSessionStart"
+		}
+	]
+}

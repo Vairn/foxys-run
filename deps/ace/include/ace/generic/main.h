@@ -106,7 +106,11 @@ void __stack_chk_fail(void) {
 
 //-------------------------------------------------------- GENERIC MAIN FUNCTION
 
-int main(void) {
+#if defined(AMIGA) && !defined(ACE_HOST)
+extern void sunnyGrowStack(void (*fn)(void));
+#endif
+
+static void genericMain(void) {
 	systemCreate();
 	logOpen(GENERIC_MAIN_LOG_PATH);
 	memCreate();
@@ -139,7 +143,15 @@ int main(void) {
 	memDestroy();
 	logClose();
 	systemDestroy();
+}
 
+int main(void) {
+#if defined(AMIGA) && !defined(ACE_HOST)
+	/* KS 1.3 boot CLI stack is ~4 KB. ACE_DEBUG logs before the view changes. */
+	sunnyGrowStack(genericMain);
+#else
+	genericMain();
+#endif
 	return EXIT_SUCCESS;
 }
 

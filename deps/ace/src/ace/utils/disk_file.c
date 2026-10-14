@@ -305,6 +305,15 @@ DISKFILE_PRIVATE void diskFileFlush(void *pData) {
 		fileAccessEnable();
 	}
 
+	/* Small writes sit in pBuffer until it fills. fflush is a no-op here
+	 * (DOS Write is unbuffered), so a log line never reached disk. */
+	if(pDiskFileData->eMode == DISK_FILE_MODE_WRITE && pDiskFileData->uwBufferFill) {
+		fwrite(
+			pDiskFileData->pBuffer, pDiskFileData->uwBufferFill, 1,
+			pDiskFileData->pFileHandle
+		);
+		pDiskFileData->uwBufferFill = 0;
+	}
 	fflush(pDiskFileData->pFileHandle);
 
 	if(!pDiskFileData->isUninterrupted) {

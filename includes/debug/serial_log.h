@@ -8,7 +8,8 @@
  * ACE_DEBUG also compiles blit-range checks, alloc traces, and logBlock spam.
  * This path keeps logWrite() on the RS-232 port (115200 8N1) without that.
  *
- * When ACE_DEBUG is on, ACE's logger wins — do not enable both.
+ * When ACE_DEBUG is on, ACE's logger wins — do not enable both. ACE's main()
+ * writes that log to GENERIC_MAIN_LOG_PATH.
  */
 void sunnySerialOpen(void);
 void sunnySerialClose(void);

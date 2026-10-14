@@ -1,0 +1,6 @@
+{
+    "cmake.sourceDirectory": "${workspaceFolder}",
+    "[m68k]": {
+        "editor.rulers": []
+    }
+}

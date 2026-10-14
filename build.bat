@@ -13,6 +13,8 @@ rem   build.bat ace      -> Release (-O2),  ACE_DEBUG=ON + ACE_DEBUG_UAE=ON,
 rem                         output in build-ace\
 rem   build.bat lite     -> Release (-O2),  ACE_DEBUG=OFF, game logWrite() to
 rem                         serial only, output in build-serial-lite\
+rem   build.bat file     -> Release (-O2),  ACE_DEBUG=ON, logOpen sunnyland.log,
+rem                         output in build-file\
 rem
 rem Graphics, levels, music, and sound effects are already packed in
 rem dist\data.pak (levels, graphics, music, sound effects).
@@ -30,6 +32,7 @@ if /I "%~1"=="debug" set "MODE=debug"
 if /I "%~1"=="serial" set "MODE=serial"
 if /I "%~1"=="ace" set "MODE=ace"
 if /I "%~1"=="lite" set "MODE=lite"
+if /I "%~1"=="file" set "MODE=file"
 
 if "%MODE%"=="debug" (
   set "BUILD_DIR=%ROOT%\build-debug"
@@ -39,6 +42,7 @@ if "%MODE%"=="debug" (
   set "ACE_UAE=OFF"
   set "ACE_SER=OFF"
   set "SUNNY_SER=OFF"
+  set "SUNNY_LOG="
 ) else if "%MODE%"=="serial" (
   set "BUILD_DIR=%ROOT%\build-serial"
   set "BUILD_TYPE=RelWithDebInfo"
@@ -47,6 +51,7 @@ if "%MODE%"=="debug" (
   set "ACE_UAE=OFF"
   set "ACE_SER=ON"
   set "SUNNY_SER=OFF"
+  set "SUNNY_LOG="
 ) else if "%MODE%"=="ace" (
   set "BUILD_DIR=%ROOT%\build-ace"
   set "BUILD_TYPE=Release"
@@ -55,6 +60,7 @@ if "%MODE%"=="debug" (
   set "ACE_UAE=ON"
   set "ACE_SER=OFF"
   set "SUNNY_SER=OFF"
+  set "SUNNY_LOG="
 ) else if "%MODE%"=="lite" (
   set "BUILD_DIR=%ROOT%\build-serial-lite"
   set "BUILD_TYPE=Release"
@@ -63,6 +69,16 @@ if "%MODE%"=="debug" (
   set "ACE_UAE=OFF"
   set "ACE_SER=OFF"
   set "SUNNY_SER=ON"
+  set "SUNNY_LOG="
+) else if "%MODE%"=="file" (
+  set "BUILD_DIR=%ROOT%\build-file"
+  set "BUILD_TYPE=Release"
+  set "TRACE_OPT=-DSUNNY_TRACE=OFF"
+  set "ACE_DBG=ON"
+  set "ACE_UAE=OFF"
+  set "ACE_SER=OFF"
+  set "SUNNY_SER=OFF"
+  set "SUNNY_LOG=sunnyland.log"
 ) else (
   set "BUILD_DIR=%ROOT%\build"
   set "BUILD_TYPE=Release"
@@ -71,6 +87,7 @@ if "%MODE%"=="debug" (
   set "ACE_UAE=OFF"
   set "ACE_SER=OFF"
   set "SUNNY_SER=OFF"
+  set "SUNNY_LOG="
 )
 
 if not defined BART call :find_bart
@@ -104,7 +121,7 @@ set "PATH=%BART%\bin;C:\Program Files\CMake\bin;%PATH%"
 if not exist "%BUILD_DIR%" mkdir "%BUILD_DIR%"
 cd /d "%BUILD_DIR%"
 
-echo Build mode: %MODE%  (type=%BUILD_TYPE%, dir=%BUILD_DIR%, uae=%ACE_UAE%, serial=%ACE_SER%, serial_log=%SUNNY_SER%)
+echo Build mode: %MODE%  (type=%BUILD_TYPE%, dir=%BUILD_DIR%, uae=%ACE_UAE%, serial=%ACE_SER%, serial_log=%SUNNY_SER%, log=%SUNNY_LOG%)
 
 cmake "%ROOT%" -G Ninja ^
   -DCMAKE_TOOLCHAIN_FILE="%TOOLCHAIN_CMAKE:\=/%" ^
@@ -117,6 +134,7 @@ cmake "%ROOT%" -G Ninja ^
   -DACE_DEBUG_UAE=%ACE_UAE% ^
   -DACE_DEBUG_SERIAL=%ACE_SER% ^
   -DSUNNY_SERIAL_LOG=%SUNNY_SER% ^
+  -DSUNNY_LOG_PATH=%SUNNY_LOG% ^
   -DACE_USE_ECS_FEATURES=OFF ^
   -DACE_USE_AGA_FEATURES=OFF ^
   -DACE_SCROLLBUFFER_ENABLE_SCROLL_Y=ON ^
@@ -132,7 +150,9 @@ if errorlevel 1 exit /b 1
 copy /y "%ROOT%\dist\data.pak" "%BUILD_DIR%\data.pak" >nul
 
 if not exist "%BUILD_DIR%\s" mkdir "%BUILD_DIR%\s"
-> "%BUILD_DIR%\s\startup-sequence" echo sunnyland.exe
+rem AmigaDOS treats CR as part of the command, so the line must be LF only.
+set "SEQ=%BUILD_DIR%\s\startup-sequence"
+powershell -NoProfile -Command "[IO.File]::WriteAllText($env:SEQ, 'sunnyland.exe' + [char]10)"
 
 cd /d "%ROOT%"
 

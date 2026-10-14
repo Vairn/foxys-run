@@ -438,6 +438,7 @@ static UBYTE s_ubLoadStep;
 
 static void loadTick(void) {
 	loadingProgress(++s_ubLoadStep, LOAD_STEPS);
+	logWrite("load step %u/%u\n", s_ubLoadStep, LOAD_STEPS);
 }
 
 void gameGsCreate(void) {
@@ -447,9 +448,11 @@ void gameGsCreate(void) {
 	// on a blank copper list; ptplayer samples keep DMA-looping until Unuse.
 	levelPeekMonsterSet();
 	s_ubLoadStep = 0;
+	logWrite("load: card\n");
 	loadingShow();
 
 	// Drop title samples before the scroll / BOB peak. Same track is a no-op.
+	logWrite("load: music\n");
 	musicStartForLevel();
 
 	// Create the view and a single full-screen playfield viewport. The HUD is
@@ -466,7 +469,7 @@ void gameGsCreate(void) {
 	// sheet is loaded after bobReallocateBuffers; create/undraw do not.
 	{
 		const tLevelDef *pLevel = levelGetCurrent();
-		logWrite("Terrain tileset: %s\n", pLevel->szTilesetPath);
+		logWrite("load: tileset %s\n", pLevel->szTilesetPath);
 		s_pTiles = sunnyLoadBitmap(pLevel->szTilesetPath, 0);
 		s_pPropTiles = 0;
 		s_pPropTilesMask = 0;
@@ -494,6 +497,7 @@ void gameGsCreate(void) {
 		}
 	}
 	// Tall maps pay Y-margin chip; 15-tall maps keep the short window.
+	logWrite("load: tilebuffer %ux%u\n", s_uwWorldTilesX, s_uwWorldTilesY);
 	s_pTileBuffer = tileBufferCreate(0,
 		TAG_TILEBUFFER_VPORT, s_pVPort,
 		TAG_TILEBUFFER_BITMAP_FLAGS, BMF_CLEAR | BMF_INTERLEAVED,
@@ -534,34 +538,46 @@ void gameGsCreate(void) {
 	memcpy(s_pVPort->pPalette, s_pPalette, sizeof(s_pPalette));
 
 	// Create copper sky gradient aligned to the (now full-screen) playfield.
+	logWrite("load: sky\n");
 	skyCreate(s_pView, s_pVPort);
 	loadTick();
 
 	// Load tile map + prop layers into memory
+	logWrite("load: map\n");
 	loadMap();
 	propsCreate(levelGetWidthTiles(), levelGetHeightTiles());
+	logWrite("load: collision\n");
 	collisionInit(s_pTileBuffer);
+	logWrite("load: terrain\n");
 	terrainInit(s_pTileBuffer);
 	loadTick();
+	logWrite("load: props\n");
 	loadProps();
 	loadTick();
 
 	// Player bitmaps (disk IO). Other entities still use the shared bob
 	// manager; the fox is a hardware sprite chained on the HUD.
+	logWrite("load: player\n");
 	playerLoad(s_pTileBuffer);
+	logWrite("load: pickups\n");
 	pickupsLoad(s_pTileBuffer);
 	loadTick();
+	logWrite("load: monsters\n");
 	monstersLoad(s_pTileBuffer);
+	logWrite("load: effects\n");
 	effectsLoad(s_pTileBuffer);
 	loadTick();
+	logWrite("load: platforms\n");
 	platformsLoad(s_pTileBuffer);
 	vinesLoad(s_pTileBuffer);
 	trampolinesLoad(s_pTileBuffer);
 	loadTick();
+	logWrite("load: switches\n");
 	switchesLoad(s_pTileBuffer);
 	doorsLoad(s_pTileBuffer);
 	loadTick();
 	// Restore from the pristine playfield instead of per-BOB save stacks.
+	logWrite("load: bobs\n");
 	bobManagerCreate(
 		s_pTileBuffer->pScroll->pFront,
 		s_pTileBuffer->pScroll->pBack,
@@ -577,12 +593,13 @@ void gameGsCreate(void) {
 	trampolinesInitBobs();
 	switchesInitBobs();
 	doorsInitBobs();
+	logWrite("load: bob realloc\n");
 	bobReallocateBuffers();
 
 	// Props tileset: onTileDraw / tileBufferRedrawAll need it; BOB setup did not.
 	{
 		const tLevelDef *pLevel = levelGetCurrent();
-		logWrite("Props tileset: %s\n", pLevel->szPropTilesPath);
+		logWrite("load: prop tiles %s\n", pLevel->szPropTilesPath);
 		s_pPropTiles = sunnyLoadBitmap(pLevel->szPropTilesPath, 0);
 		s_pPropTilesMask = sunnyLoadBitmap(pLevel->szPropMaskPath, 0);
 	}
@@ -590,6 +607,7 @@ void gameGsCreate(void) {
 	playerReset(levelGetSpawnTileX(), levelGetSpawnTileY());
 
 	// Fade and free the 40 KB title card before HUD/overlay CHIP allocs.
+	logWrite("load: hide card\n");
 	// With the card still up, peak was 434 KB and the largest hole was
 	// 3360 bytes — overlay wants a 7680-byte interleaved bitmap.
 	loadingHide();
@@ -616,6 +634,7 @@ void gameGsCreate(void) {
 	if(systemBlitterIsReleasedToOs()) {
 		systemGetBlitterFromOs();
 	}
+	logWrite("load: redraw\n");
 	gfxDump("preRedraw");
 	tileBufferRedrawAll(s_pTileBuffer);
 	gfxDump("postRedraw");

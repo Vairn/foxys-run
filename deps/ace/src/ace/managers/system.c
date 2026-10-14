@@ -898,9 +898,19 @@ void systemCreate(void) {
 
 	// Determine original stack size
 	char *pStackLower = (char *)s_pProcess->pr_Task.tc_SPLower;
-	ULONG ulStackSize = (char *)s_pProcess->pr_Task.tc_SPUpper - pStackLower;
+	char *pStackUpper = (char *)s_pProcess->pr_Task.tc_SPUpper;
+	ULONG ulStackSize = (ULONG)(pStackUpper - pStackLower);
 	if(s_pProcess->pr_CLI) {
-		ulStackSize = *(ULONG *)s_pProcess->pr_ReturnAddr;
+		/* CLI stack size lives in the long at pr_ReturnAddr. On KS 1.3 with
+		 * V36 process offsets that pointer can be NULL or odd, and the
+		 * dereference gurus while the boot CLI is still on screen. */
+		ULONG ulRet = (ULONG)s_pProcess->pr_ReturnAddr;
+		if(ulRet && (ulRet & 1) == 0 &&
+			ulRet >= (ULONG)pStackLower &&
+			ulRet + sizeof(ULONG) <= (ULONG)pStackUpper
+		) {
+			ulStackSize = *(ULONG *)ulRet;
+		}
 	}
 	logWrite("Stack size: %lu\n", ulStackSize);
 	*pStackLower = SYSTEM_STACK_CANARY;

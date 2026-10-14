@@ -1,0 +1,36 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "amiga: build",
+      "type": "shell",
+      "command": "cmake",
+      "args": ["--build", "${workspaceFolder}/build"],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PATH": "C:\\Program Files\\CMake\\bin;${env:PATH}"
+        }
+      },
+      "problemMatcher": ["$gcc"],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      }
+    },
+    {
+      "label": "amiga: build (file log, ACE_DEBUG)",
+      "type": "shell",
+      "command": "cmake",
+      "args": ["--build", "${workspaceFolder}/build-file"],
+      "options": {
+        "cwd": "${workspaceFolder}",
+        "env": {
+          "PATH": "C:\\Program Files\\CMake\\bin;${env:PATH}"
+        }
+      },
+      "problemMatcher": ["$gcc"],
+      "group": "build"
+    }
+  ]
+}

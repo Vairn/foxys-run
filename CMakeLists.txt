@@ -78,6 +78,13 @@ if(SUNNY_SERIAL_LOG)
 	add_compile_definitions(SUNNY_SERIAL_LOG)
 endif()
 message(STATUS "SUNNY_SERIAL_LOG: ${SUNNY_SERIAL_LOG}")
+# ACE's main() calls logOpen(GENERIC_MAIN_LOG_PATH). Empty keeps the default,
+# which is a null path and writes no file.
+set(SUNNY_LOG_PATH "" CACHE STRING "ACE logOpen path (sunnyland.log)")
+if(SUNNY_LOG_PATH)
+	add_compile_definitions(GENERIC_MAIN_LOG_PATH="${SUNNY_LOG_PATH}")
+endif()
+message(STATUS "SUNNY_LOG_PATH: ${SUNNY_LOG_PATH}")
 
 # ---- ACE configuration ------------------------------------------------
 # OCS/ECS target, no AGA. Default ACE options are tuned for OCS already.
@@ -128,6 +135,21 @@ include_directories(${PROJECT_SOURCE_DIR}/includes)
 
 add_subdirectory(deps/ace ace)
 include_directories(${PROJECT_SOURCE_DIR}/deps/ace/include)
+
+# gcc8_a_support.s puts each helper in its own section, so gas emits a 68020
+# bsr.l (opcode 61ff) for jbsr. A 68000 treats 61ff as bsr.b #-1, lands on an
+# odd address, and gurus (#00000003) the first time ACE prints a number.
+# Absolute jsr is the form this toolchain already relocates.
+if(NOT ACE_HOST)
+	set(_GCC_SUPPORT "${CMAKE_BINARY_DIR}/_deps/bartman_gcc_support-src/src/gcc8_a_support.s")
+	if(EXISTS "${_GCC_SUPPORT}")
+		file(READ "${_GCC_SUPPORT}" _GCC_SRC)
+		if(_GCC_SRC MATCHES "jbsr")
+			string(REPLACE "jbsr" "jsr" _GCC_SRC "${_GCC_SRC}")
+			file(WRITE "${_GCC_SUPPORT}" "${_GCC_SRC}")
+		endif()
+	endif()
+endif()
 if(ACE_HOST)
 	# NDK-shaped stubs (exec/, graphics/, hardware/, proto/) backed by the host.
 	include_directories(${PROJECT_SOURCE_DIR}/deps/ace/host/include)
