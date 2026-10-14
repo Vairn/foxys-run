@@ -1,6 +1,6 @@
 # Foxy's Run
 
-An Amiga 500 (OCS) platformer. This repository is the game source, plus the packed data it loads. It is enough to compile `sunnyland`.
+A platformer. This repository is the game source, plus the packed data it loads. It is enough to compile `sunnyland`.
 
 The playfield art comes from the [Sunny Land](https://ansimuz.itch.io/sunny-land-pixel-game-art) pack by Ansimuz. That pack is not in this repository. `dist/data.pak` is the already converted, compressed archive.
 
@@ -8,7 +8,7 @@ The engine under `deps/ace` is [ACE](https://github.com/AmigaPorts/ACE), include
 
 ## Target
 
-Amiga 500 / A500+, OCS, 68000, 512 KB chip RAM + 512 KB slow RAM, PAL 320×256.
+The binary is 68000 code with AGA features off, PAL 320×256. `launch.bat` and the debugger boot it on a stock A1200: 68020, AGA, 2 MB chip RAM, Kickstart 3.1.
 
 ## Layout
 
@@ -26,7 +26,7 @@ src/            Game sources (C11)
   ui/           HUD, overlay, font
   audio/        Music and sound effects
   assets/       Pak loading
-  debug/        Serial log
+  debug/        Startup stack and serial log
 CMakeLists.txt  Amiga build and the native host build
 build.bat       Cross-compile with the Bartman m68k toolchain
 build-host.bat  Native build (ACE_HOST, SDL)
@@ -40,7 +40,7 @@ deps/ace/       ACE, with the changes this game builds against
 - CMake 3.14+ and Ninja
 - The Bartman Amiga GCC toolchain from the [amiga-debug](https://marketplace.visualstudio.com/items?itemName=bartmanabyss.amiga-debug) extension (Cursor or VS Code)
 - [AmigaCMakeCrossToolchains](https://github.com/AmigaPorts/AmigaCMakeCrossToolchains)
-- WinUAE or Amiga Forever, and a Kickstart 1.3 ROM you already own, if you want to boot the result
+- WinUAE or Amiga Forever, and a Kickstart 3.1 A1200 ROM you already own (`amiga-os-310-a1200.rom`), if you want to boot the result
 
 The host build also needs MSYS2 UCRT64 gcc and SDL2:
 
@@ -59,7 +59,17 @@ build.bat
 
 `build.bat` looks for `m68k-amiga-elf-gcc` under the `amiga-debug` extension. If it lives somewhere else, set `BART` to the directory that contains `bin\m68k-amiga-elf-gcc.exe`.
 
-`build.bat debug`, `serial`, `ace`, and `lite` match the same modes as a development build. Each one copies the same prebuilt archives into its output directory.
+`build.bat` with no arguments is the Release build in `build\`. The other modes are:
+
+```text
+build.bat debug     RelWithDebInfo, symbols, ACE_DEBUG off      build-debug\
+build.bat serial    RelWithDebInfo, ACE_DEBUG and serial        build-serial\
+build.bat ace       Release, ACE_DEBUG and the UAE console      build-ace\
+build.bat lite      Release, game log lines to serial only      build-serial-lite\
+build.bat file      Release, ACE_DEBUG, log file sunnyland.log  build-file\
+```
+
+Each mode copies `dist\data.pak` into its output directory.
 
 ```text
 build\sunnyland.elf
@@ -83,4 +93,12 @@ build-host.bat
 launch.bat
 ```
 
-Mounts `build\` as `DH0:SunnyLand` on an OCS A500 with 512 KB chip and 512 KB slow RAM. `s/startup-sequence` launches the game.
+Writes `sunnyland_a1200.uae` and boots `build\` as `DH0:SunnyLand` on a stock A1200 (68020, AGA, 2 MB chip, Kickstart 3.1). `s/startup-sequence` launches `sunnyland.exe`.
+
+```bat
+launch.bat file
+```
+
+Same machine, using `build-file\`. ACE writes `sunnyland.log` in that directory.
+
+F5 uses the Amiga debugger configurations in `.vscode/launch.json`, also an A1200 with Kickstart 3.1. **Foxy's Run A1200** rebuilds `build\` first. **Foxy's Run A1200 (no rebuild)** launches the ELF that is already there.
