@@ -13,7 +13,18 @@ Amiga 500 / A500+, OCS, 68000, 512 KB chip RAM + 512 KB slow RAM, PAL 320×256.
 ## Layout
 
 ```text
-src/            Game and intro (C11)
+includes/       Headers, same module folders as src/
+src/            Game and intro sources (C11)
+  game/         Play loop, screens, session, shared constants
+  intro/        Intro disk: splash and copper slices
+  player/       Player
+  world/        Levels, terrain, collision, sky
+  entities/     Monsters, pickups, shots, effects
+  props/        Doors, switches, platforms, trampolines, vines, signs
+  ui/           HUD, overlay, font
+  audio/        Music and sound effects
+  assets/       Pak loading
+  debug/        Serial log
 CMakeLists.txt  Amiga build and the native host build
 build.bat       Cross-compile with the Bartman m68k toolchain
 build-host.bat  Native build (ACE_HOST, SDL)

@@ -120,14 +120,14 @@ set(ACE_TILEBUFFER_TILE_TYPE UWORD CACHE STRING "Tilebuffer: Use UWORD for large
 # CONFIGURE_DEPENDS re-runs the glob at build time so newly added src files
 # (e.g. hud.c/monsters.c/effects.c) are picked up without a manual reconfigure.
 file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS src/*.c)
-file(GLOB_RECURSE HEADERS CONFIGURE_DEPENDS src/*.h)
+file(GLOB_RECURSE HEADERS CONFIGURE_DEPENDS includes/*.h)
 
 # Generated game data compiled into the binary (collision LUT).
 # Tile maps + entities are loaded at runtime from data/levels/levelN.dat
 # (campaign discovered at startup; optional per-level tileset/palette).
 list(APPEND SOURCES ${PROJECT_SOURCE_DIR}/data/tiles/tilecollision.c)
 
-include_directories(${PROJECT_SOURCE_DIR}/src)
+include_directories(${PROJECT_SOURCE_DIR}/includes)
 # Generated asset headers live under data/ (sprites/*.h, tiles/*.h, levels/*.h).
 include_directories(${PROJECT_SOURCE_DIR}/data)
 
@@ -141,20 +141,17 @@ endif()
 set(TARGET_NAME ${PROJECT_NAME_LOWER})
 
 set(GAME_SOURCES ${SOURCES})
-list(FILTER GAME_SOURCES EXCLUDE REGEX "main_intro\\.c$")
-list(FILTER GAME_SOURCES EXCLUDE REGEX "src[/\\\\]intro\\.c$")
-list(FILTER GAME_SOURCES EXCLUDE REGEX "src[/\\\\]splash\\.c$")
-list(FILTER GAME_SOURCES EXCLUDE REGEX "src[/\\\\]slicecop\\.c$")
+list(FILTER GAME_SOURCES EXCLUDE REGEX "[/\\\\]intro[/\\\\]")
 
 set(INTRO_SOURCES
-	${PROJECT_SOURCE_DIR}/src/main_intro.c
-	${PROJECT_SOURCE_DIR}/src/intro.c
-	${PROJECT_SOURCE_DIR}/src/splash.c
-	${PROJECT_SOURCE_DIR}/src/slicecop.c
-	${PROJECT_SOURCE_DIR}/src/font.c
-	${PROJECT_SOURCE_DIR}/src/assets.c
-	${PROJECT_SOURCE_DIR}/src/music.c
-	${PROJECT_SOURCE_DIR}/src/serial_log.c
+	${PROJECT_SOURCE_DIR}/src/intro/main_intro.c
+	${PROJECT_SOURCE_DIR}/src/intro/intro.c
+	${PROJECT_SOURCE_DIR}/src/intro/splash.c
+	${PROJECT_SOURCE_DIR}/src/intro/slicecop.c
+	${PROJECT_SOURCE_DIR}/src/ui/font.c
+	${PROJECT_SOURCE_DIR}/src/assets/assets.c
+	${PROJECT_SOURCE_DIR}/src/audio/music.c
+	${PROJECT_SOURCE_DIR}/src/debug/serial_log.c
 )
 
 # Bartman produces a raw ELF; elf2hunk converts it to a bootable Amiga hunk exe.
