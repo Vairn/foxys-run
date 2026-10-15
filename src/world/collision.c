@@ -83,6 +83,31 @@ void collisionInit(tTileBufferManager *pTileBuffer) {
 			fileReadBytes(pCol, ubIdxToCol, uwN);
 			fileClose(pCol);
 			logWrite("Collision LUT: %s (%u tiles)\n", szColPath, uwN);
+			for(UWORD i = 0; i < uwN; ++i) {
+				if(!colIsSlope(ubIdxToCol[i])) {
+					continue;
+				}
+				const unsigned char *pRow = tileSlopeRow(i);
+				UBYTE s;
+				if(!pRow) {
+					ubIdxToCol[i] = COL_SOLID;
+					continue;
+				}
+				for(s = 0; s < ubShapes; ++s) {
+					if(!memcmp(g_ubColSlopeY[s], pRow, COL_TILE_SIZE)) {
+						break;
+					}
+				}
+				if(s == ubShapes) {
+					if(ubShapes >= COL_SLOPE_SHAPES) {
+						ubIdxToCol[i] = COL_SOLID;
+						continue;
+					}
+					memcpy(g_ubColSlopeY[s], pRow, COL_TILE_SIZE);
+					++ubShapes;
+				}
+				ubIdxToCol[i] = (UBYTE)(COL_SLOPE + s);
+			}
 		}
 	}
 	else for(UWORD i = 0; i < TILECOLLISION_COUNT; ++i) {

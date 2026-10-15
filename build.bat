@@ -28,6 +28,20 @@ rem injects the essential m68k flags (incl. -nostdlib) via CMAKE_C_FLAGS_INIT,
 rem which only applies when the cache var is UNSET.
 rem ------------------------------------------------------------------
 set "MODE=release"
+if not "%~1"=="" (
+  set "MODE_OK="
+  if /I "%~1"=="release" set "MODE_OK=1"
+  if /I "%~1"=="debug" set "MODE_OK=1"
+  if /I "%~1"=="serial" set "MODE_OK=1"
+  if /I "%~1"=="ace" set "MODE_OK=1"
+  if /I "%~1"=="lite" set "MODE_OK=1"
+  if /I "%~1"=="file" set "MODE_OK=1"
+  if not defined MODE_OK (
+    echo Unknown build mode: %~1
+    echo Modes: release, debug, serial, ace, lite, file
+    exit /b 1
+  )
+)
 if /I "%~1"=="debug" set "MODE=debug"
 if /I "%~1"=="serial" set "MODE=serial"
 if /I "%~1"=="ace" set "MODE=ace"
@@ -115,6 +129,16 @@ if not exist "%AMIGA_CMAKE_TOOLCHAIN%" (
 
 for %%I in ("%BART%") do set "BART_SHORT=%%~sI"
 for %%I in ("%AMIGA_CMAKE_TOOLCHAIN%") do set "TOOLCHAIN_CMAKE=%%~sI"
+if not defined BART_SHORT (
+  echo 8.3 short names are disabled, so the Bartman path cannot be passed to CMake:
+  echo   %BART%
+  exit /b 1
+)
+if not defined TOOLCHAIN_CMAKE (
+  echo 8.3 short names are disabled, so the toolchain file cannot be passed to CMake:
+  echo   %AMIGA_CMAKE_TOOLCHAIN%
+  exit /b 1
+)
 
 set "PATH=%BART%\bin;C:\Program Files\CMake\bin;%PATH%"
 

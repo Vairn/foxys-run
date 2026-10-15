@@ -120,7 +120,7 @@ if(NOT ACE_HOST)
 		CPMAddPackage(
 			NAME bartman_gcc_support
 			GITHUB_REPOSITORY AmigaPorts/bartman_gcc_support
-			GIT_TAG latest
+			GIT_TAG cdaec3ef7056c9830512c36e59b89e75f9a01c50
 		)
 		# Workaround for nested OBJECT library
 		# https://stackoverflow.com/questions/71040175

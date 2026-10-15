@@ -1,8 +1,8 @@
-/* End-of-level result card: bouncing title plus cherry/gem/kill summary.
-
-   Chrome and stats are drawn once. The bouncing title is CPU-plotted into a
-   wiped title band each frame — blitting the scale-2 glyphs hits ACE's
-   unaligned interleaved copy path and shreds the letters. */
+/* End-of-level result card. Chrome and stats are drawn once. The title wave is
+   a band clear plus one cookie blit per letter from glyphs baked at card
+   creation. Plotting those glyphs every frame, or blitting them from an odd
+   X, both lose: the plot walks every scaled pixel, and an unaligned
+   interleaved blit uses an odd byte pointer and shreds the glyph. */
 #include "ui/overlay.h"
 #include "ui/font.h"
 #include "props/signs.h"
@@ -40,15 +40,23 @@
 #define TITLE_ADV (FONT_ADV * TITLE_SCALE)
 #define TITLE_BAND_Y (TITLE_BASE_Y - 7)
 #define TITLE_BAND_H (7 * 2 + TITLE_GLYPH_H)
+/* Glyphs are 10px wide on a 12px advance, so a letter can cross a 16px
+   boundary. A 32px slot covers that and stays a multiple of 16, which is
+   the only X the interleaved blitter copies without a shift. */
+#define TITLE_SLOT_W 32
 
 static const BYTE s_pBounce[16] = {
 	0, 3, 5, 6, 7, 6, 5, 3, 0, -3, -5, -6, -7, -6, -5, -3
 };
 
 static const char s_szTitle[] = "LEVEL COMPLETE";
+#define TITLE_LETTERS (sizeof(s_szTitle) - 1)
 
 static tBitMap *s_pBm;
+static tBitMap *s_pTitleSheet;
+static tBitMap *s_pTitleMask;
 static WORD s_wTitleX;
+static WORD s_pTitleX[TITLE_LETTERS];
 
 static UBYTE s_ubActive;
 static UBYTE s_ubFinished;
@@ -100,24 +108,97 @@ static void drawStats(void) {
 	drawStatLine(66, "ENEMIES", s_uwKills);
 }
 
-static void drawTitle(void) {
-	// Leave the side borders and the stats block untouched.
-	blitRect(s_pBm, 1, TITLE_BAND_Y, OVERLAY_W - 2, TITLE_BAND_H, COL_BG);
-	blitWait();
+static void titleFreeBaked(void) {
+	if(s_pTitleSheet) {
+		bitmapDestroy(s_pTitleSheet);
+		s_pTitleSheet = 0;
+	}
+	if(s_pTitleMask) {
+		bitmapDestroy(s_pTitleMask);
+		s_pTitleMask = 0;
+	}
+}
 
+/* One 32px-wide row per letter, pixels already shifted to that letter's X
+   inside the word. The mask repeats the ink in every plane so a cookie
+   blit can stamp colour 8 without touching the background. */
+static void titleBake(void) {
+	UWORD uwH = (UWORD)TITLE_LETTERS * TITLE_GLYPH_H;
+	UBYTE i;
+	WORD wX = s_wTitleX;
+
+	titleFreeBaked();
+	for(i = 0; i < TITLE_LETTERS; ++i) {
+		s_pTitleX[i] = wX;
+		wX += TITLE_ADV;
+	}
+	s_pTitleSheet = bitmapCreate(
+		TITLE_SLOT_W, uwH, 4, BMF_CLEAR | BMF_INTERLEAVED
+	);
+	s_pTitleMask = bitmapCreate(
+		TITLE_SLOT_W, uwH, 4, BMF_CLEAR | BMF_INTERLEAVED
+	);
+	if(!s_pTitleSheet || !s_pTitleMask) {
+		titleFreeBaked();
+		return;
+	}
+	for(i = 0; i < TITLE_LETTERS; ++i) {
+		WORD wShift = (WORD)(s_pTitleX[i] & 15);
+		UWORD uwY = (UWORD)i * TITLE_GLYPH_H;
+		if(s_szTitle[i] == ' ') {
+			continue;
+		}
+		fontDrawChar(
+			s_pTitleSheet, wShift, (WORD)uwY, s_szTitle[i], COL_TITLE, TITLE_SCALE
+		);
+		fontDrawChar(
+			s_pTitleMask, wShift, (WORD)uwY, s_szTitle[i], 15, TITLE_SCALE
+		);
+	}
+}
+
+static void drawTitleCpu(void) {
 	WORD wX = s_wTitleX;
 	UBYTE i = 0;
 	while(s_szTitle[i]) {
-		WORD wY = TITLE_BASE_Y + s_pBounce[(s_uwTick + (UWORD)i * 2) & 15];
+		WORD wY = (WORD)(
+			TITLE_BASE_Y + s_pBounce[(s_uwTick + (UWORD)i * 2) & 15]
+		);
 		fontDrawChar(s_pBm, wX, wY, s_szTitle[i], COL_TITLE, TITLE_SCALE);
 		wX += TITLE_ADV;
 		++i;
 	}
 }
 
+static void drawTitle(void) {
+	UBYTE i;
+	/* Leave the side borders and the stats block untouched. */
+	blitRect(s_pBm, 1, TITLE_BAND_Y, OVERLAY_W - 2, TITLE_BAND_H, COL_BG);
+	if(!s_pTitleSheet || !s_pTitleMask) {
+		blitWait();
+		drawTitleCpu();
+		return;
+	}
+	for(i = 0; i < TITLE_LETTERS; ++i) {
+		WORD wDstX;
+		WORD wY;
+		if(s_szTitle[i] == ' ') {
+			continue;
+		}
+		wDstX = (WORD)(s_pTitleX[i] & ~15);
+		wY = (WORD)(TITLE_BASE_Y + s_pBounce[(s_uwTick + (UWORD)i * 2) & 15]);
+		blitCopyMask(
+			s_pTitleSheet, 0, (WORD)((UWORD)i * TITLE_GLYPH_H),
+			s_pBm, wDstX, wY, TITLE_SLOT_W, TITLE_GLYPH_H,
+			(const UBYTE *)s_pTitleMask->Planes[0]
+		);
+	}
+}
+
 void overlayCreate(void) {
 	s_pBm = bitmapCreate(OVERLAY_W, OVERLAY_H, 4, BMF_CLEAR | BMF_INTERLEAVED);
 	s_wTitleX = (WORD)((OVERLAY_W - fontTextWidth(s_szTitle, TITLE_SCALE)) / 2);
+	titleBake();
 	s_ubActive = 0;
 	s_ubFinished = 0;
 	s_ubKind = OVERLAY_KIND_COMPLETE;
@@ -130,6 +211,7 @@ void overlayDestroy(void) {
 		bitmapDestroy(s_pBm);
 		s_pBm = 0;
 	}
+	titleFreeBaked();
 	s_ubActive = 0;
 }
 
@@ -180,6 +262,11 @@ UBYTE overlayIsActive(void) {
 	return s_ubActive;
 }
 
+void overlayCancel(void) {
+	s_ubActive = 0;
+	s_ubFinished = 0;
+}
+
 UBYTE overlayIsFinished(void) {
 	return s_ubFinished;
 }
@@ -220,11 +307,11 @@ void overlayDraw(
 	}
 
 	if(s_ubKind == OVERLAY_KIND_COMPLETE) {
+		drawTitle();
 		if(s_uwTick >= OVERLAY_STATS_FRAME && !s_ubStatsDrawn) {
 			drawStats();
 			s_ubStatsDrawn = 1;
 		}
-		drawTitle();
 	}
 
 	UWORD uwWorldX = uwCamX + (SCREEN_W - OVERLAY_W) / 2;

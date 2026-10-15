@@ -36,7 +36,7 @@ void playerDestroy(void);
 
 UWORD playerGetCenterX(void);
 
-UWORD playerGetCenterY(void);
+WORD playerGetCenterY(void);
 
 // World-space hitbox (top-left + size, in pixels), used for entity overlap.
 void playerGetHitbox(WORD *pwX, WORD *pwY, UWORD *puwW, UWORD *puwH);

@@ -114,7 +114,9 @@ typedef struct {
 	UBYTE isActive;
 	UBYTE ubAnimFrame;
 	UBYTE ubAnimTimer;
-	UWORD uwTimer; // generic per-type timer (hopper cadence)
+	UWORD uwTimer; // generic per-type timer (hopper cadence, boss throw)
+	UWORD uwHopTimer; // boss hop; throw resets uwTimer before a hop could fire
+	UBYTE isAwake; // bosses stay idle until the player is within a screen
 	// Hitbox, relative to the bob top-left (pixels).
 	UBYTE ubHp;
 	UBYTE ubInvuln;
@@ -382,6 +384,10 @@ static void moveHorizontal(tMonster *pMon, UBYTE isStick) {
 				}
 			}
 		}
+		if(wNewLeftPx < 0) {
+			wNewLeftPx = 0;
+			lNewX = 0;
+		}
 		pMon->lPosX = lNewX;
 		if(isBlocked) {
 			pMon->wDir = -pMon->wDir;
@@ -638,9 +644,18 @@ static void processChaser(tMonster *pMon, tPackSheet *pS, LONG lWalk, LONG lRun)
 	applyGravity(pMon);
 	moveVertical(pMon);
 	if(pastPatrolEdge(pMon) || (probeGround(pMon) && !groundAhead(pMon))) {
-		pMon->wDir = -pMon->wDir;
+		// Chasing into a ledge or the patrol limit used to flip every update.
+		if(lSpeed == lRun) {
+			pMon->lVelX = 0;
+		}
+		else {
+			pMon->wDir = -pMon->wDir;
+			pMon->lVelX = (pMon->wDir > 0) ? lSpeed : -lSpeed;
+		}
 	}
-	pMon->lVelX = (pMon->wDir > 0) ? lSpeed : -lSpeed;
+	else {
+		pMon->lVelX = (pMon->wDir > 0) ? lSpeed : -lSpeed;
+	}
 	moveHorizontal(pMon, 1);
 	animatePack(pMon, pS, WALKER_ANIM_DELAY);
 }
@@ -1004,6 +1019,7 @@ static void processWoodsBoss(tMonster *pMon) {
 
 	if(isGround) {
 		++pMon->uwTimer;
+		++pMon->uwHopTimer;
 		UWORD uwThrow = (pMon->ubHp <= 3) ? (BOSS_THROW_PERIOD / 2) : BOSS_THROW_PERIOD;
 		if(pMon->uwTimer >= uwThrow) {
 			pMon->uwTimer = 0;
@@ -1020,7 +1036,8 @@ static void processWoodsBoss(tMonster *pMon) {
 		else {
 			pMon->lVelX = 0;
 		}
-		if(pMon->uwTimer == BOSS_HOP_PERIOD && groundAhead(pMon)) {
+		if(pMon->uwHopTimer >= BOSS_HOP_PERIOD && groundAhead(pMon)) {
+			pMon->uwHopTimer = 0;
 			pMon->lVelY = -BOSS_HOP_VY;
 			pMon->lVelX = (pMon->wDir > 0) ? BOSS_SPEED : -BOSS_SPEED;
 		}
@@ -1110,6 +1127,25 @@ static void bossAnimate(tMonster *pMon, UBYTE ubAnim, UBYTE ubDelay) {
 	bossSetAnim(pMon, ubAnim);
 }
 
+static UBYTE bossOnScreen(const tMonster *pMon) {
+	if(!s_pTileBuffer || !s_pTileBuffer->pCamera) {
+		return 0;
+	}
+	WORD wCamX = (WORD)s_pTileBuffer->pCamera->uPos.uwX;
+	WORD wCamY = (WORD)s_pTileBuffer->pCamera->uPos.uwY;
+	WORD wX = TO_PX(pMon->lPosX);
+	WORD wY = TO_PX(pMon->lPosY);
+	WORD wR = wX + (WORD)pMon->sBob.uwWidth - 1;
+	WORD wB = wY + (WORD)pMon->sBob.uwHeight - 1;
+	if(wR < wCamX || wB < wCamY) {
+		return 0;
+	}
+	if(wX >= wCamX + SCREEN_W || wY >= wCamY + SCREEN_H) {
+		return 0;
+	}
+	return 1;
+}
+
 static void bossShotSpawn(tMonster *pMon) {
 	for(UBYTE i = 0; i < BOSS_SHOT_MAX; ++i) {
 		tBossShot *pShot = &s_pBossShots[i];
@@ -1132,7 +1168,9 @@ static void bossShotSpawn(tMonster *pMon) {
 		pShot->isActive = 1;
 		pShot->ubAnimFrame = 0;
 		pShot->ubAnimTimer = 0;
-		sfxPlaySpit();
+		if(bossOnScreen(pMon)) {
+			sfxPlaySpit();
+		}
 		return;
 	}
 }
@@ -1231,6 +1269,7 @@ static void processBoss(tMonster *pMon) {
 
 	if(isGround) {
 		++pMon->uwTimer;
+		++pMon->uwHopTimer;
 		UWORD uwThrow = (pMon->ubHp <= 2) ? (BOSS_THROW_PERIOD / 2) : BOSS_THROW_PERIOD;
 		if(pMon->uwTimer >= uwThrow) {
 			pMon->uwTimer = 0;
@@ -1244,7 +1283,8 @@ static void processBoss(tMonster *pMon) {
 		WORD wPlayerFeet = wPY + (WORD)uwPH - 1;
 		WORD wBossFeet = TO_PX(pMon->lPosY) + pMon->ubHbY + pMon->ubHbH - 1;
 		UBYTE isPlayerAbove = (UBYTE)(wPlayerFeet + 8 < wBossFeet);
-		if(pMon->uwTimer == BOSS_HOP_PERIOD && (groundAhead(pMon) || isPlayerAbove)) {
+		if(pMon->uwHopTimer >= BOSS_HOP_PERIOD && (groundAhead(pMon) || isPlayerAbove)) {
+			pMon->uwHopTimer = 0;
 			pMon->lVelY = -BOSS_HOP_VY;
 			pMon->lVelX = (pMon->wDir > 0) ? BOSS_SPEED : -BOSS_SPEED;
 		}
@@ -1340,14 +1380,15 @@ static void collidePlayer(
 		return; // no overlap
 	}
 	// Stomp: descending and the player's feet are in the enemy's upper half.
+	// An enemy still in its post-stomp invulnerability window does not hurt
+	// the player; a second falling contact only bounces.
 	if(ubFalling && wPB <= wET + (pMon->ubHbH >> 1)) {
-		if(pMon->ubInvuln) {
-			return;
+		if(!pMon->ubInvuln) {
+			monsterDamage(pMon);
 		}
-		monsterDamage(pMon);
 		playerBounce();
 	}
-	else {
+	else if(!pMon->ubInvuln) {
 		// Side/underside contact: the player takes a hit (knockback away from
 		// the enemy's centre). Harmless while the player is invulnerable.
 		playerHurt(wEL + (pMon->ubHbW >> 1));
@@ -1365,6 +1406,25 @@ static UBYTE levelHasEnemyType(UBYTE ubType) {
 		}
 	}
 	return 0;
+}
+
+static void freeBossShots(void) {
+	if(s_pBossShot) {
+		bitmapDestroy(s_pBossShot);
+		s_pBossShot = 0;
+	}
+	if(s_pBossShotMask) {
+		bitmapDestroy(s_pBossShotMask);
+		s_pBossShotMask = 0;
+	}
+	if(s_pBossShotFlip) {
+		bitmapDestroy(s_pBossShotFlip);
+		s_pBossShotFlip = 0;
+	}
+	if(s_pBossShotFlipMask) {
+		bitmapDestroy(s_pBossShotFlipMask);
+		s_pBossShotFlipMask = 0;
+	}
 }
 
 void monstersLoad(tTileBufferManager *pTileBuffer) {
@@ -1503,6 +1563,7 @@ void monstersLoad(tTileBufferManager *pTileBuffer) {
 	}
 
 	if(s_ubHasBoss) {
+		freeBossShots();
 		s_pBoss = sunnyLoadBitmap("data/sprites/boss.bm", 0);
 		s_pBossMask = sunnyLoadBitmap("data/sprites/boss_mask.bm", 0);
 		s_pBossFlip = sunnyLoadBitmap("data/sprites/boss_flip.bm", 0);
@@ -1532,6 +1593,7 @@ void monstersLoad(tTileBufferManager *pTileBuffer) {
 	}
 
 	if(s_ubHasWoodsBoss) {
+		freeBossShots();
 		s_pWoods = loadLevelSprite("woods_boss.bm");
 		s_pWoodsMask = loadLevelSprite("woods_boss_mask.bm");
 		s_pWoodsFlip = loadLevelSprite("woods_boss_flip.bm");
@@ -1687,6 +1749,8 @@ static void monsterSpawn(
 	pMon->ubAnimFrame = 0;
 	pMon->ubAnimTimer = 0;
 	pMon->uwTimer = 0;
+	pMon->uwHopTimer = 0;
+	pMon->isAwake = 0;
 	pMon->lVelX = 0;
 	pMon->lVelY = 0;
 	pMon->ubHp = 1;
@@ -1999,6 +2063,24 @@ void monstersProcess(void) {
 				continue;
 			}
 		}
+		else if(!pMon->isAwake) {
+			WORD wMx = TO_PX(pMon->lPosX) + pMon->ubHbX + (pMon->ubHbW >> 1);
+			WORD wMy = TO_PX(pMon->lPosY) + pMon->ubHbY + (pMon->ubHbH >> 1);
+			WORD wDx = wMx - (wPX + (WORD)(uwPW >> 1));
+			WORD wDy = wMy - (wPY + (WORD)(uwPH >> 1));
+			if(wDx < 0) {
+				wDx = (WORD)-wDx;
+			}
+			if(wDy < 0) {
+				wDy = (WORD)-wDy;
+			}
+			if(wDx <= SCREEN_W && wDy <= SCREEN_H) {
+				pMon->isAwake = 1;
+			}
+			else {
+				continue;
+			}
+		}
 		switch(pMon->ubType) {
 			case ENEMY_TYPE_BOSS:    processBoss(pMon);    break;
 			case ENEMY_TYPE_FLYER:   processFlyer(pMon);   break;
@@ -2033,6 +2115,9 @@ void monstersPushBobs(void) {
 		// hitbox so ground walkers like the opossum stand with clearance.
 		WORD wX = TO_PX(pMon->lPosX);
 		WORD wY = TO_PX(pMon->lPosY) - pMon->ubDrawRaise;
+		if(wX < 0) {
+			continue;
+		}
 		pMon->sBob.sPos.uwX = (UWORD)wX;
 		pMon->sBob.sPos.uwY = (UWORD)wY;
 

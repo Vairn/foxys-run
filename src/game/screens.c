@@ -80,6 +80,7 @@ static tBitMap *s_pTextMask;
 static tBitMap *s_pCopyright;
 static tBitMap *s_pCopyrightMask;
 static tCopBlock *s_pHorizonCop;
+static tCopBlock *s_pSkyColCop;
 static tCopBlock *s_pSpriteOffCop;
 static ULONG *s_pBlankSprite;
 static tBitMap *s_pSkyDrawnBm[2];
@@ -95,6 +96,7 @@ static UBYTE s_ubTextPage;
 static tScreenKind s_eKind;
 static UBYTE s_ubInputLock;
 static UBYTE s_ubWantStart;
+static UBYTE s_ubStartReleased;
 static UWORD s_pScreenPal[16];
 
 static void drawTextCentered(
@@ -113,14 +115,21 @@ static void drawTextCenteredShadowed(
 }
 
 static void pollStart(void) {
+	UBYTE ubHeld;
 	if(s_ubInputLock || s_ubWantStart) {
 		return;
 	}
 	joyProcess();
-	if(
+	ubHeld = (UBYTE)(
 		keyCheck(KEY_SPACE) || keyCheck(KEY_RETURN) ||
-		joyCheck(JOY1_FIRE)
-	) {
+		keyCheck(KEY_UP) || keyCheck(KEY_W) ||
+		joyCheck(JOY1_FIRE) || joyCheck(JOY1_UP)
+	);
+	if(!ubHeld) {
+		s_ubStartReleased = 1;
+		return;
+	}
+	if(s_ubStartReleased) {
 		s_ubWantStart = 1;
 	}
 }
@@ -399,6 +408,7 @@ static void screenCreate(tScreenKind eKind) {
 	s_eKind = eKind;
 	s_ubInputLock = INPUT_LOCK_FRAMES;
 	s_ubWantStart = 0;
+	s_ubStartReleased = 0;
 	s_pLogo = 0;
 	s_pLogoMask = 0;
 	s_pClouds = 0;
@@ -407,6 +417,7 @@ static void screenCreate(tScreenKind eKind) {
 	s_pCopyright = 0;
 	s_pCopyrightMask = 0;
 	s_pHorizonCop = 0;
+	s_pSkyColCop = 0;
 	s_pSpriteOffCop = 0;
 	s_pBlankSprite = memAllocChipClear(sizeof(*s_pBlankSprite));
 	s_pVPortSea = 0;
@@ -452,6 +463,7 @@ static void screenCreate(tScreenKind eKind) {
 		);
 		s_pBfrSea = titleBufferCreate(s_pVPortSea, TITLE_SEA_H);
 
+		systemReleaseBlitterToOs();
 		sunnyLoadPalette("data/ui/title_logo.plt", pPal, 16);
 		memcpy(s_pVPort->pPalette, pPal, sizeof(pPal));
 		s_pVPort->pPalette[0] = TITLE_COL_SKY;
@@ -464,9 +476,16 @@ static void screenCreate(tScreenKind eKind) {
 		}
 		titleBakeText();
 		titleBakeCopyright();
+		systemGetBlitterFromOs();
 
 		{
-			UWORD uwY = (UWORD)(s_pView->ubPosY + s_pVPort->uwOffsY + TITLE_HORIZON_Y);
+			UWORD uwTop = s_pView->ubPosY;
+			UWORD uwY = (UWORD)(uwTop + s_pVPort->uwOffsY + TITLE_HORIZON_Y);
+			s_pSkyColCop = copBlockCreate(s_pView->pCopList, 1, 0, uwTop);
+			copMove(
+				s_pView->pCopList, s_pSkyColCop,
+				&g_pCustom->color[0], TITLE_COL_SKY
+			);
 			s_pHorizonCop = copBlockCreate(s_pView->pCopList, 1, 0, uwY);
 			copMove(
 				s_pView->pCopList, s_pHorizonCop,
@@ -478,7 +497,9 @@ static void screenCreate(tScreenKind eKind) {
 		simpleBufferProcess(s_pBfr);
 		simpleBufferProcess(s_pBfrSea);
 		titleDraw();
+		systemReleaseBlitterToOs();
 		musicStartTitle();
+		systemGetBlitterFromOs();
 	}
 	else {
 		tBitMap *pBm;
@@ -529,6 +550,9 @@ static void screenCreate(tScreenKind eKind) {
 }
 
 static void screenFadeOut(void) {
+	if(s_pSkyColCop) {
+		copBlockDisable(s_pView->pCopList, s_pSkyColCop);
+	}
 	if(s_pHorizonCop) {
 		copBlockDisable(s_pView->pCopList, s_pHorizonCop);
 	}
@@ -594,6 +618,10 @@ static void screenDestroy(void) {
 	systemUse();
 	if(!musicConsumeKeep()) {
 		musicStop();
+	}
+	if(s_pSkyColCop) {
+		copBlockDestroy(s_pView->pCopList, s_pSkyColCop);
+		s_pSkyColCop = 0;
 	}
 	if(s_pHorizonCop) {
 		copBlockDestroy(s_pView->pCopList, s_pHorizonCop);

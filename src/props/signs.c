@@ -11,8 +11,8 @@ static const char * const s_pLines[SIGN_MSG_COUNT][SIGN_LINE_MAX] = {
 	{"CLIMB THE POLES", 0, 0},
 	{"SWING FROM VINES", 0, 0},
 	{"BOUNCE ON PADS", 0, 0},
-	{"GEMS HOLD THE SUN", 0, 0},
-	{"CHERRIES - AMMO", "GEMS OPEN THE WAY", 0}
+	{"GEMS HOLD SUN UP", 0, 0},
+	{"CHERRIES - AMMO", "GEMS OPEN A WAY", 0}
 };
 
 static UBYTE signsClampId(UBYTE ubId) {

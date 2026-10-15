@@ -290,11 +290,21 @@ static void loadMap(void) {
 	levelSetWidthTiles(uwMapW);
 	levelSetHeightTiles(uwMapH);
 
+	UWORD uwTileMax = 1;
+	if(s_pTiles && s_pTiles->Rows >= TILE_SIZE) {
+		uwTileMax = (UWORD)(s_pTiles->Rows / TILE_SIZE);
+	}
+
 	// Column-major tiles, then skip any file columns/rows we truncated so the
 	// entity trailer stays aligned.
 	for(UWORD x = 0; x < uwFileW; ++x) {
 		if(x < uwMapW) {
 			sunnyReadTiles(pFile, s_pTileBuffer->pTileData[x], uwMapH);
+			for(UWORD y = 0; y < uwMapH; ++y) {
+				if(s_pTileBuffer->pTileData[x][y] >= uwTileMax) {
+					s_pTileBuffer->pTileData[x][y] = 0;
+				}
+			}
 			if(uwFileH > uwMapH) {
 				fileSeek(
 					pFile,
@@ -417,6 +427,7 @@ static void gameRestartCurrentLevel(void) {
 	doorsReset();
 	terrainReset();
 	shotsReset();
+	overlayCancel();
 	playerReset(levelGetSpawnTileX(), levelGetSpawnTileY());
 	cameraFollowPlayer();
 	hudUpdate();
@@ -446,6 +457,9 @@ void gameGsCreate(void) {
 	// Peek winter/forest first so the card can pick its palette.
 	// Stay in systemUse (destroy just took the OS) so viewLoad/IO cannot hang
 	// on a blank copper list; ptplayer samples keep DMA-looping until Unuse.
+	// Floppy trackdisk needs the blitter. Hand it to the OS for this load,
+	// and take it back before the tile redraw below.
+	systemReleaseBlitterToOs();
 	levelPeekMonsterSet();
 	s_ubLoadStep = 0;
 	logWrite("load: card\n");
@@ -629,11 +643,9 @@ void gameGsCreate(void) {
 	cameraFollowPlayer();
 
 	// Full initial draw, then discard any stale bob undraw state.
-	// Kick still owns the blitter while the title card is up; take it
-	// before the hogged tile paint. Do not poke write-only custom regs.
-	if(systemBlitterIsReleasedToOs()) {
-		systemGetBlitterFromOs();
-	}
+	// The load above released the blitter to the OS. Take it back for the
+	// tile paint and the game loop. Do not poke write-only custom regs.
+	systemGetBlitterFromOs();
 	logWrite("load: redraw\n");
 	gfxDump("preRedraw");
 	tileBufferRedrawAll(s_pTileBuffer);
@@ -645,20 +657,11 @@ void gameGsCreate(void) {
 	playerUpdateSprite();
 	loadTick();
 
-	{
-		UBYTE ubUnuse = 0;
-		while(systemIsUsed() && ubUnuse < 8) {
-			systemUnuse();
-			++ubUnuse;
-		}
-		while(systemBlitterIsReleasedToOs()) {
-			systemGetBlitterFromOs();
-		}
-		logWrite(
-			"GFX unuse %u os=%u blitOs=%u\n",
-			ubUnuse, systemIsUsed(), systemBlitterIsReleasedToOs()
-		);
-	}
+	systemUnuse();
+	logWrite(
+		"GFX os=%u blitOs=%u\n",
+		systemIsUsed(), systemBlitterIsReleasedToOs()
+	);
 
 	/* Card is black; install the play view black too so viewLoad is not a pop. */
 	{
@@ -770,6 +773,7 @@ static UBYTE gameSimulate(void) {
 			wZY = 0;
 		}
 		if(
+			playerGetHealth() &&
 			pickupsAllGemsCollected() &&
 			wZX <= wPR && wZR >= wPX && wZY <= wPB && wZB >= wPY
 		) {

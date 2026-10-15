@@ -142,12 +142,16 @@ include_directories(${PROJECT_SOURCE_DIR}/deps/ace/include)
 # Absolute jsr is the form this toolchain already relocates.
 if(NOT ACE_HOST)
 	set(_GCC_SUPPORT "${CMAKE_BINARY_DIR}/_deps/bartman_gcc_support-src/src/gcc8_a_support.s")
-	if(EXISTS "${_GCC_SUPPORT}")
-		file(READ "${_GCC_SUPPORT}" _GCC_SRC)
-		if(_GCC_SRC MATCHES "jbsr")
-			string(REPLACE "jbsr" "jsr" _GCC_SRC "${_GCC_SRC}")
-			file(WRITE "${_GCC_SUPPORT}" "${_GCC_SRC}")
-		endif()
+	if(NOT EXISTS "${_GCC_SUPPORT}")
+		message(FATAL_ERROR
+			"gcc8_a_support.s not found at ${_GCC_SUPPORT}. "
+			"Refusing to configure: the 68000 jbsr-to-jsr patch would be skipped."
+		)
+	endif()
+	file(READ "${_GCC_SUPPORT}" _GCC_SRC)
+	if(_GCC_SRC MATCHES "jbsr")
+		string(REPLACE "jbsr" "jsr" _GCC_SRC "${_GCC_SRC}")
+		file(WRITE "${_GCC_SUPPORT}" "${_GCC_SRC}")
 	endif()
 endif()
 if(ACE_HOST)

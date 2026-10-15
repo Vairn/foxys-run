@@ -10,7 +10,7 @@ void overlayCreate(void);
 
 void overlayDestroy(void);
 
-// Snapshot the level stats and start the bouncing "LEVEL COMPLETE" card.
+// Snapshot the level stats and start the "LEVEL COMPLETE" card.
 void overlayBeginComplete(UWORD uwCherries, UWORD uwGems, UWORD uwKills);
 
 // Bake a static sign card from the ROM line for ubId. Dismiss does not finish.
@@ -20,6 +20,9 @@ UBYTE overlayIsActive(void);
 
 // Returns 1 once the complete card has been shown long enough (or skipped).
 UBYTE overlayIsFinished(void);
+
+// Drop a card without finishing it. Used when a death restarts the level.
+void overlayCancel(void);
 
 void overlayProcess(void);
 

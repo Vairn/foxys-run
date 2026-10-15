@@ -43,49 +43,55 @@ static UWORD skyGradientColor(UWORD i, UBYTE ubDither) {
 	return (UWORD)((wR << 8) | (wG << 4) | wB);
 }
 
-static void skyGradientEmitWait(tCopBlock *pBlock, UWORD uwX, UWORD uwY, UBYTE *pWasLimitY) {
-	if(uwY >= 0xFF) {
-		if(!*pWasLimitY) {
-			copSetWait(&pBlock->pCmds[pBlock->uwCurrCount++].sWait, 0xDF, 0xFF);
-			*pWasLimitY = 1;
-		}
-		if(uwY > 0xFF) {
-			copSetWait(
-				&pBlock->pCmds[pBlock->uwCurrCount++].sWait,
-				(UBYTE)uwX, (UBYTE)(uwY & 0xFF)
-			);
-		}
-	}
-	else {
-		copSetWait(
-			&pBlock->pCmds[pBlock->uwCurrCount++].sWait,
-			(UBYTE)uwX, (UBYTE)uwY
-		);
-	}
+#define SKY_BLOCK_MAX 320
+
+static tCopBlock *s_pSkyBlocks[SKY_BLOCK_MAX];
+static UWORD s_uwSkyBlockCount;
+
+static void skyBlocksReset(void) {
+	s_uwSkyBlockCount = 0;
+	s_pSkyGradient = 0;
 }
 
-/* Keep Lisa in OCS fetch every frame. viewLoad writes these once; Kick or
- * AGA leftover FMODE makes tile DMA look like static while sprites/color0
- * still look fine. Copper writes, never reads. */
-static void skyEmitAgaOcs(tCopList *pCopList) {
-	copMove(pCopList, s_pSkyGradient, &g_pCustom->fmode, 0);
-	copMove(pCopList, s_pSkyGradient, &g_pCustom->bplcon3, 0);
-	copMove(pCopList, s_pSkyGradient, &g_pCustom->bplcon4, BPLCON4_AGA_RESET);
+static tCopBlock *skyAddBlock(tCopList *pList, UWORD uwY, UWORD uwCmds) {
+	tCopBlock *pBlock;
+	if(s_uwSkyBlockCount >= SKY_BLOCK_MAX) {
+		logWrite("ERR: sky block cap\n");
+		return 0;
+	}
+	pBlock = copBlockCreate(pList, uwCmds, 0, uwY);
+	s_pSkyBlocks[s_uwSkyBlockCount++] = pBlock;
+	if(!s_pSkyGradient) {
+		s_pSkyGradient = pBlock;
+	}
+	return pBlock;
 }
 
+static void skyEmitAgaOcs(tCopList *pCopList, tCopBlock *pBlock) {
+	copMove(pCopList, pBlock, &g_pCustom->fmode, 0);
+	copMove(pCopList, pBlock, &g_pCustom->bplcon3, 0);
+	copMove(pCopList, pBlock, &g_pCustom->bplcon4, BPLCON4_AGA_RESET);
+}
+
+/* One copper block per beam line that changes colour (and the fox palette
+   line). ACE orders blocks by their header WAIT, so the scroll-buffer break
+   can land between them. A single block with internal WAITs past line 255
+   sorts the break after the whole sky, and the bitmap never wraps. */
 static void skyEmitFoxIfNeeded(
 	tCopList *pCopList, UWORD uwStartY, UWORD i, UBYTE ubChanged,
-	UBYTE *pFoxPal, UBYTE *pWasLimitY
+	tCopBlock *pLineBlock, UBYTE *pFoxPal
 ) {
+	tCopBlock *pBlock;
 	if(*pFoxPal || i < HUD_FOX_MIN_Y) {
 		return;
 	}
-	if(!ubChanged) {
-		skyGradientEmitWait(
-			s_pSkyGradient, 0, uwStartY + HUD_FOX_MIN_Y, pWasLimitY
-		);
+	pBlock = (ubChanged && pLineBlock) ? pLineBlock : skyAddBlock(
+		pCopList, (UWORD)(uwStartY + i), 8
+	);
+	if(!pBlock) {
+		return;
 	}
-	hudEmitFoxPalette(pCopList, s_pSkyGradient);
+	hudEmitFoxPalette(pCopList, pBlock);
 	*pFoxPal = 1;
 }
 
@@ -102,7 +108,7 @@ static UBYTE skyCreateFromCop(
 	fileReadBytes(pFile, &ubVer, 1);
 	fileReadBytes(pFile, &ubFlags, 1);
 	UWORD uwFileLines = sunnyReadWord(pFile);
-	(void)sunnyReadWord(pFile); /* waitX — playfield sky always waits at X=0 */
+	(void)sunnyReadWord(pFile); /* waitX â€” playfield sky always waits at X=0 */
 	UWORD uwMaxCmds = sunnyReadWord(pFile);
 	if(
 		pMagic[0] != 'S' || pMagic[1] != 'L' ||
@@ -114,6 +120,7 @@ static UBYTE skyCreateFromCop(
 		return 0;
 	}
 	(void)ubFlags;
+	(void)uwMaxCmds;
 
 	UWORD uwLines = pVPort->uwHeight;
 	if(uwLines > SKY_GRADIENT_LINES) {
@@ -130,20 +137,17 @@ static UBYTE skyCreateFromCop(
 	}
 	fileReadBytes(pFile, pCounts, uwFileLines);
 
-	if(uwMaxCmds < 8) {
-		uwMaxCmds = SKY_GRADIENT_MAX_CMDS;
-	}
-	else {
-		uwMaxCmds = (UWORD)(uwMaxCmds + 8 + SKY_AGA_OCS_CMDS);
-	}
-
 	tCopList *pCopList = pView->pCopList;
 	UWORD uwStartY = pView->ubPosY + pVPort->uwOffsY;
 	s_pSkyList = pCopList;
-	s_pSkyGradient = copBlockCreate(pCopList, uwMaxCmds, 0, uwStartY);
-	skyEmitAgaOcs(pCopList);
+	skyBlocksReset();
+	{
+		tCopBlock *pFirst = skyAddBlock(pCopList, uwStartY, 12);
+		if(pFirst) {
+			skyEmitAgaOcs(pCopList, pFirst);
+		}
+	}
 
-	UBYTE ubWasLimitY = (uwStartY >= 0xFF) ? 1 : 0;
 	UBYTE ubFoxPal = 0;
 	UWORD uwPrevColor = 0xFFFF;
 	UWORD y;
@@ -157,7 +161,7 @@ static UBYTE skyCreateFromCop(
 			UWORD uwWord;
 			fileReadBytes(pFile, &ubReg, 1);
 			uwWord = sunnyReadWord(pFile);
-			/* Sprite copper owns 16–31; only colour 0 is the sky. */
+			/* Sprite copper owns 16â€“31; only colour 0 is the sky. */
 			if(ubReg == 0) {
 				uwColor = (UWORD)(uwWord & 0x0FFF);
 				ubHaveColor0 = 1;
@@ -167,24 +171,25 @@ static UBYTE skyCreateFromCop(
 			continue;
 		}
 		UBYTE ubChanged = 0;
+		tCopBlock *pLine = 0;
 		if(ubHaveColor0 && (y == 0 || uwColor != uwPrevColor)) {
-			if(y > 0) {
-				skyGradientEmitWait(
-					s_pSkyGradient, 0, uwStartY + y, &ubWasLimitY
-				);
+			pLine = (y == 0) ? s_pSkyGradient : skyAddBlock(
+				pCopList, (UWORD)(uwStartY + y), 8
+			);
+			if(pLine) {
+				copMove(pCopList, pLine, &g_pCustom->color[0], uwColor);
 			}
-			copMove(pCopList, s_pSkyGradient, &g_pCustom->color[0], uwColor);
 			uwPrevColor = uwColor;
 			ubChanged = 1;
 		}
 		skyEmitFoxIfNeeded(
-			pCopList, uwStartY, y, ubChanged, &ubFoxPal, &ubWasLimitY
+			pCopList, uwStartY, y, ubChanged, pLine, &ubFoxPal
 		);
 	}
 
 	memFree(pCounts, uwFileLines);
 	fileClose(pFile);
-	logWrite("Sky: %s (%u lines)\n", szPath, uwLines);
+	logWrite("Sky: %s (%u lines, %u blocks)\n", szPath, uwLines, s_uwSkyBlockCount);
 	return 1;
 }
 
@@ -197,37 +202,38 @@ static void skyCreateProcedural(tView *pView, const tVPort *pVPort) {
 
 	tCopList *pCopList = pView->pCopList;
 	s_pSkyList = pCopList;
-	s_pSkyGradient = copBlockCreate(
-		pCopList, SKY_GRADIENT_MAX_CMDS, 0, uwStartY
-	);
-	skyEmitAgaOcs(pCopList);
+	skyBlocksReset();
+	{
+		tCopBlock *pFirst = skyAddBlock(pCopList, uwStartY, 12);
+		if(pFirst) {
+			skyEmitAgaOcs(pCopList, pFirst);
+		}
+	}
 
-	UBYTE ubWasLimitY = (uwStartY >= 0xFF) ? 1 : 0;
 	UBYTE ubFoxPal = 0;
 	UWORD uwPrevColor = 0xFFFF;
 	for(UWORD i = 0; i < uwLines; ++i) {
 		UWORD uwColor = skyGradientColor(i, (UBYTE)((i & 1) ? 8 : 0));
 		UBYTE ubChanged = (i == 0 || uwColor != uwPrevColor);
+		tCopBlock *pLine = 0;
 		if(ubChanged) {
-			if(i > 0) {
-				skyGradientEmitWait(
-					s_pSkyGradient, 0, uwStartY + i, &ubWasLimitY
-				);
-			}
-			copMove(
-				pCopList, s_pSkyGradient, &g_pCustom->color[0], uwColor
+			pLine = (i == 0) ? s_pSkyGradient : skyAddBlock(
+				pCopList, (UWORD)(uwStartY + i), 8
 			);
+			if(pLine) {
+				copMove(pCopList, pLine, &g_pCustom->color[0], uwColor);
+			}
 			uwPrevColor = uwColor;
 		}
 		skyEmitFoxIfNeeded(
-			pCopList, uwStartY, i, ubChanged, &ubFoxPal, &ubWasLimitY
+			pCopList, uwStartY, i, ubChanged, pLine, &ubFoxPal
 		);
 	}
 }
 
 void skyCreate(tView *pView, const tVPort *pVPort) {
 	const tLevelDef *pLevel = levelGetCurrent();
-	s_pSkyGradient = 0;
+	skyBlocksReset();
 	s_pSkyList = 0;
 	if(pLevel && pLevel->szCopPath[0]) {
 		if(skyCreateFromCop(pView, pVPort, pLevel->szCopPath)) {
@@ -238,13 +244,25 @@ void skyCreate(tView *pView, const tVPort *pVPort) {
 }
 
 void skyDisable(void) {
-	if(s_pSkyGradient && s_pSkyList) {
-		copBlockDisable(s_pSkyList, s_pSkyGradient);
+	UWORD i;
+	if(!s_pSkyList) {
+		return;
+	}
+	for(i = 0; i < s_uwSkyBlockCount; ++i) {
+		if(s_pSkyBlocks[i]) {
+			copBlockDisable(s_pSkyList, s_pSkyBlocks[i]);
+		}
 	}
 }
 
 void skyEnable(void) {
-	if(s_pSkyGradient && s_pSkyList) {
-		copBlockEnable(s_pSkyList, s_pSkyGradient);
+	UWORD i;
+	if(!s_pSkyList) {
+		return;
+	}
+	for(i = 0; i < s_uwSkyBlockCount; ++i) {
+		if(s_pSkyBlocks[i]) {
+			copBlockEnable(s_pSkyList, s_pSkyBlocks[i]);
+		}
 	}
 }

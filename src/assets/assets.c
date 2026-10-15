@@ -9,7 +9,7 @@
 static tPakFile *s_pPak;
 
 void sunnyPakInit(void) {
-	s_pPak = pakFileOpen("data.pak", 1);
+	s_pPak = pakFileOpen("data.pak", 0);
 	if(s_pPak) {
 		logWrite("pak: data.pak open (%hu files)\n", s_pPak->uwFileCount);
 	}
@@ -73,36 +73,30 @@ void sunnyLoadPalette(const char *szPath, UWORD *pPalette, UWORD uwMaxLength) {
 }
 
 tPtplayerMod *sunnyLoadMod(const char *szPath) {
-	blitWait();
-	if(s_pPak) {
-		tFile *pSub = pakFileGetFileByPath(s_pPak, szPath);
-		if(pSub) {
-			return ptplayerModCreateFromFd(pSub);
-		}
+	tFile *pFile = sunnyOpenFile(szPath);
+	if(!pFile) {
+		logWrite("ERR: missing %s\n", szPath);
+		return 0;
 	}
-	return ptplayerModCreateFromPath(szPath);
+	return ptplayerModCreateFromFd(pFile);
 }
 
 tPtplayerSamplePack *sunnyLoadSamplePack(const char *szPath) {
-	blitWait();
-	if(s_pPak) {
-		tFile *pSub = pakFileGetFileByPath(s_pPak, szPath);
-		if(pSub) {
-			return ptplayerSampleDataCreateFromFd(pSub);
-		}
+	tFile *pFile = sunnyOpenFile(szPath);
+	if(!pFile) {
+		logWrite("ERR: missing %s\n", szPath);
+		return 0;
 	}
-	return ptplayerSampleDataCreateFromPath(szPath);
+	return ptplayerSampleDataCreateFromFd(pFile);
 }
 
 tPtplayerSfx *sunnyLoadSfx(const char *szPath) {
-	blitWait();
-	if(s_pPak) {
-		tFile *pSub = pakFileGetFileByPath(s_pPak, szPath);
-		if(pSub) {
-			return ptplayerSfxCreateFromFd(pSub, 0);
-		}
+	tFile *pFile = sunnyOpenFile(szPath);
+	if(!pFile) {
+		logWrite("ERR: missing %s\n", szPath);
+		return 0;
 	}
-	return ptplayerSfxCreateFromPath(szPath, 0);
+	return ptplayerSfxCreateFromFd(pFile, 0);
 }
 
 UWORD sunnyReadWord(tFile *pFile) {

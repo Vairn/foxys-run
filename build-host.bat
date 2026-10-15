@@ -71,8 +71,7 @@ cmake "%ROOT%" -G Ninja ^
   -DACE_SCROLLBUFFER_ENABLE_SCROLL_Y=ON ^
   -DACE_SCROLLBUFFER_Y_MARGIN_SIZE=0 ^
   -DACE_SCROLLBUFFER_X_MARGIN_SIZE=2 ^
-  -DACE_BOB_ALWAYS_ON_SCROLL_BUFFER=ON ^
-  -DACE_BOB_PRISTINE_BUFFER=OFF
+  -DACE_BOB_ALWAYS_ON_SCROLL_BUFFER=ON
 if errorlevel 1 exit /b 1
 
 cmake --build .
@@ -84,7 +83,7 @@ cd /d "%ROOT%"
 
 echo.
 echo Built: %BUILD_DIR%\FoxysRun.exe
-echo Run it from its own directory so the staged data/ resolves:
+echo Run it from its own directory so data.pak is beside the exe:
 echo   cd /d "%BUILD_DIR%" ^&^& FoxysRun.exe
 echo.
 echo In-game host keys: F10 timing log, F11 memory HUD, F12 DMA overlay.

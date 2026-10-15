@@ -211,6 +211,45 @@ static void plotFace(tBitMap *pBm) {
 // the white fill is drawn on top, giving the count digits a readable dark ring.
 // The padded region is DIGIT_OUTLINE_PAD pixels bigger on every side than the
 // glyph, so the top/bottom outline has real bitmap rows to land on.
+static tBitMap *s_pDigitSheet;
+
+static UBYTE sprPeek(tBitMap *pBm, UWORD uwX, UWORD uwY) {
+	ULONG ulOffs = (ULONG)(uwY + 1) * SPR_ROW_STRIDE + (uwX >> 3);
+	UBYTE ubBit = (UBYTE)(0x80 >> (uwX & 7));
+	UBYTE *pP0 = (UBYTE *)pBm->Planes[0] + ulOffs;
+	UBYTE *pP1 = pP0 + SPR_BYTE_WIDTH;
+	UBYTE ub = 0;
+	if(*pP0 & ubBit) {
+		ub |= 1;
+	}
+	if(*pP1 & ubBit) {
+		ub |= 2;
+	}
+	return ub;
+}
+
+static void copyDigit(
+	tBitMap *pDst, UWORD uwX0, UWORD uwY0, UBYTE ubDigit, UBYTE ubSheet
+) {
+	UWORD uwSrcY;
+	UBYTE py, px;
+	if(!s_pDigitSheet) {
+		return;
+	}
+	if(ubDigit > 9) {
+		ubDigit = 9;
+	}
+	uwSrcY = (UWORD)(ubSheet + ubDigit) * GAUGE_ROW_H;
+	for(py = 0; py < GAUGE_ROW_H; ++py) {
+		for(px = 0; px < DIGIT_PADDED_W; ++px) {
+			UBYTE ub = sprPeek(s_pDigitSheet, px, (UWORD)(uwSrcY + py));
+			if(ub) {
+				sprPlot(pDst, (UWORD)(uwX0 + px), (UWORD)(uwY0 + py), ub);
+			}
+		}
+	}
+}
+
 static void plotDigit(
 	tBitMap *pBm, UWORD uwX0, UWORD uwY0, UBYTE ubDigit,
 	UBYTE ubFill, UBYTE ubOutline
@@ -244,6 +283,25 @@ static void plotDigit(
 				sprPlot(pBm, uwX0 + px, uwY0 + py, ubOutline);
 			}
 		}
+	}
+}
+
+static void hudBakeDigits(void) {
+	UWORD uwRows = (UWORD)(2 + 20 * GAUGE_ROW_H);
+	UBYTE i;
+	if(s_pDigitSheet) {
+		bitmapDestroy(s_pDigitSheet);
+		s_pDigitSheet = 0;
+	}
+	s_pDigitSheet = bitmapCreate(SPR_W, uwRows, 2, BMF_CLEAR | BMF_INTERLEAVED);
+	if(!s_pDigitSheet) {
+		return;
+	}
+	for(i = 0; i < 10; ++i) {
+		plotDigit(s_pDigitSheet, 0, (UWORD)(i * GAUGE_ROW_H), i, 1, 3);
+		plotDigit(
+			s_pDigitSheet, 0, (UWORD)((10 + i) * GAUGE_ROW_H), i, 3, 1
+		);
 	}
 }
 
@@ -285,11 +343,11 @@ static void plotTwoDigits(tBitMap *pBm, UWORD uwY0, UWORD uwCount) {
 		uwCount = 99;
 	}
 	if(uwCount >= 10) {
-		plotDigit(pBm, 0, uwY0, (UBYTE)(uwCount / 10), 1, 3);
-		plotDigit(pBm, DIGIT_ADVANCE, uwY0, (UBYTE)(uwCount % 10), 1, 3);
+		copyDigit(pBm, 0, uwY0, (UBYTE)(uwCount / 10), 0);
+		copyDigit(pBm, DIGIT_ADVANCE, uwY0, (UBYTE)(uwCount % 10), 0);
 	}
 	else {
-		plotDigit(pBm, 0, uwY0, (UBYTE)uwCount, 1, 3);
+		copyDigit(pBm, 0, uwY0, (UBYTE)uwCount, 0);
 	}
 }
 
@@ -311,7 +369,7 @@ static void hudDrawLives(UBYTE ubLives) {
 		ubLives = 9;
 	}
 	// Same glyph as gem/ammo: white fill, dark outline (bank D colour 3 / 1).
-	plotDigit(s_pBmFace, LIVES_DIGIT_X, 0, ubLives, 3, 1);
+	copyDigit(s_pBmFace, LIVES_DIGIT_X, 0, ubLives, 10);
 }
 
 static void hudDrawCounts(UWORD uwGemsLeft, UWORD uwAmmo) {
@@ -361,6 +419,7 @@ void hudEmitFoxPalette(tCopList *pList, tCopBlock *pBlock) {
 
 void hudCreate(tView *pView) {
 	s_pView = pView;
+	hudBakeDigits();
 
 	spriteManagerCreate(pView, 0, 0);
 	systemSetDmaBit(DMAB_SPRITE, 1);
@@ -599,6 +658,10 @@ void hudDestroy(void) {
 	bitmapDestroy(s_pBmIcons);
 	bitmapDestroy(s_pBmDigits);
 	bitmapDestroy(s_pBmFace);
+	if(s_pDigitSheet) {
+		bitmapDestroy(s_pDigitSheet);
+		s_pDigitSheet = 0;
+	}
 
 	if(s_pPaletteBlock) {
 		copBlockDestroy(s_pView->pCopList, s_pPaletteBlock);

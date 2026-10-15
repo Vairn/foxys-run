@@ -38,6 +38,44 @@
 			"program": "${workspaceFolder}/build/sunnyland",
 			"kickstart": "C:\\Users\\Public\\Documents\\Amiga Files\\Shared\\rom\\amiga-os-310-a1200.rom",
 			"internalConsoleOptions": "openOnSessionStart"
+		},
+		{
+			"type": "amiga",
+			"request": "launch",
+			"name": "Foxy's Run A500",
+			"config": "A500",
+			"program": "${workspaceFolder}/build/sunnyland",
+			"kickstart": "C:\\Users\\Public\\Documents\\Amiga Files\\Shared\\rom\\amiga-os-130.rom",
+			"internalConsoleOptions": "openOnSessionStart",
+			"preLaunchTask": "amiga: build"
+		},
+		{
+			"type": "amiga",
+			"request": "launch",
+			"name": "Foxy's Run A500 (file log, ACE_DEBUG)",
+			"config": "A500",
+			"program": "${workspaceFolder}/build-file/sunnyland",
+			"kickstart": "C:\\Users\\Public\\Documents\\Amiga Files\\Shared\\rom\\amiga-os-130.rom",
+			"internalConsoleOptions": "openOnSessionStart",
+			"preLaunchTask": "amiga: build (file log, ACE_DEBUG)"
+		},
+		{
+			"type": "amiga",
+			"request": "launch",
+			"name": "Foxy's Run A500 (file log, no rebuild)",
+			"config": "A500",
+			"program": "${workspaceFolder}/build-file/sunnyland",
+			"kickstart": "C:\\Users\\Public\\Documents\\Amiga Files\\Shared\\rom\\amiga-os-130.rom",
+			"internalConsoleOptions": "openOnSessionStart"
+		},
+		{
+			"type": "amiga",
+			"request": "launch",
+			"name": "Foxy's Run A500 (no rebuild)",
+			"config": "A500",
+			"program": "${workspaceFolder}/build/sunnyland",
+			"kickstart": "C:\\Users\\Public\\Documents\\Amiga Files\\Shared\\rom\\amiga-os-130.rom",
+			"internalConsoleOptions": "openOnSessionStart"
 		}
 	]
 }

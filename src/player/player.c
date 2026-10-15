@@ -101,6 +101,7 @@ static UBYTE s_ubSwingLockout;
 static UBYTE s_ubCoyote;
 static UBYTE s_ubFacing;
 static UBYTE s_ubJumpPrev;
+static UBYTE s_ubJumpCut; // variable-height cut applies only to a player jump
 static UBYTE s_ubLeftPrev;
 static UBYTE s_ubRightPrev;
 
@@ -949,6 +950,7 @@ void playerReset(UWORD uwSpawnTileX, UWORD uwSpawnTileY) {
 	s_ubCoyote = 0;
 	s_ubFacing = PLAYER_FACE_RIGHT;
 	s_ubJumpPrev = 0;
+	s_ubJumpCut = 0;
 	s_ubLeftPrev = 0;
 	s_ubRightPrev = 0;
 	s_ubHealth = PLAYER_START_HEALTH;
@@ -1077,7 +1079,7 @@ void playerProcess(void) {
 		}
 		s_ubGlued = 0;
 		moveVertical();
-		s_ubJumpPrev = 0;
+		s_ubJumpPrev = inputJump();
 		return;
 	}
 
@@ -1088,11 +1090,12 @@ void playerProcess(void) {
 		moveHorizontal();
 		moveVertical();
 		if(s_ubDying) {
-			s_ubJumpPrev = 0;
+			s_ubJumpPrev = inputJump();
 			return;
 		}
 		animate();
-		s_ubJumpPrev = 0; // require a fresh press once control returns
+		// A button already held when control returns must not count as a new press.
+		s_ubJumpPrev = inputJump();
 		return;
 	}
 
@@ -1138,6 +1141,13 @@ void playerProcess(void) {
 	UBYTE ubFloor = s_isOnGround ? feetCol() : COL_EMPTY;
 	if(s_isOnGround) {
 		s_ubOnIce = (ubFloor == COL_ICE) ? 1 : 0;
+		if(ubFloor == COL_HAZARD) {
+			playerHurt(TO_PX(s_lPosX) + HB_X + HB_W / 2);
+			// Knockback was just written; the rest of this frame would replace it.
+			if(s_ubDying || s_ubHurtLock) {
+				return;
+			}
+		}
 	}
 
 	UBYTE isIceSlide = (UBYTE)(s_ubOnIce || (!s_isOnGround && s_ubOnIce));
@@ -1208,11 +1218,16 @@ void playerProcess(void) {
 		s_isOnGround = 0;
 		s_ubCoyote = 0;
 		platformsClearRide();
+		s_ubJumpCut = 1;
 		sfxPlayJump();
 	}
 	// Variable jump height: releasing jump while rising cuts upward speed.
-	if(!isJump && s_lVelY < 0) {
+	// Bounces (stomp, trampoline) leave s_ubJumpCut clear so they stay full height.
+	if(s_ubJumpCut && !isJump && s_lVelY < 0) {
 		s_lVelY >>= 1;
+	}
+	if(s_lVelY >= 0) {
+		s_ubJumpCut = 0;
 	}
 	s_ubJumpPrev = isJump;
 
@@ -1265,8 +1280,8 @@ UWORD playerGetCenterX(void) {
 	return TO_PX(s_lPosX) + HB_X + HB_W / 2;
 }
 
-UWORD playerGetCenterY(void) {
-	return TO_PX(s_lPosY) + HB_Y + HB_H / 2;
+WORD playerGetCenterY(void) {
+	return (WORD)(TO_PX(s_lPosY) + HB_Y + HB_H / 2);
 }
 
 void playerGetHitbox(WORD *pwX, WORD *pwY, UWORD *puwW, UWORD *puwH) {
@@ -1286,6 +1301,7 @@ UBYTE playerIsOnGround(void) {
 
 void playerBounceVel(LONG lVelY) {
 	s_lVelY = lVelY;
+	s_ubJumpCut = 0;
 	s_isOnGround = 0;
 	s_ubCoyote = 0;
 	leaveClimb();
@@ -1331,6 +1347,7 @@ void playerHurt(WORD wSourceCenterX) {
 	WORD wCenterX = TO_PX(s_lPosX) + HB_X + HB_W / 2;
 	s_lVelX = (wCenterX < wSourceCenterX) ? -PLAYER_KNOCKBACK_VX : PLAYER_KNOCKBACK_VX;
 	s_lVelY = -PLAYER_KNOCKBACK_VY;
+	s_ubJumpCut = 0;
 	s_isOnGround = 0;
 	s_ubCoyote = 0;
 	leaveClimb();

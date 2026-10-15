@@ -211,11 +211,30 @@ void terrainProcess(void) {
 	}
 }
 
+static UBYTE tileInBufferWindow(UWORD uwTileX, UWORD uwTileY) {
+	UBYTE ubShift = s_pTileBuffer->ubTileShift;
+	UWORD uwCamTileX = s_pTileBuffer->pCamera->uPos.uwX >> ubShift;
+	UWORD uwCamTileY = s_pTileBuffer->pCamera->uPos.uwY >> ubShift;
+	UWORD uwMarginX = ACE_SCROLLBUFFER_X_MARGIN_SIZE;
+	UWORD uwMarginY = s_pTileBuffer->ubYMargin;
+	UWORD uwStartX = (uwCamTileX > uwMarginX) ? (UWORD)(uwCamTileX - uwMarginX) : 0;
+	UWORD uwStartY = (uwCamTileY > uwMarginY) ? (UWORD)(uwCamTileY - uwMarginY) : 0;
+	UWORD uwEndX = (UWORD)(uwStartX + (s_pTileBuffer->uwMarginedWidth >> ubShift));
+	UWORD uwEndY = (UWORD)(uwStartY + (s_pTileBuffer->uwMarginedHeight >> ubShift));
+	return (UBYTE)(
+		uwTileX >= uwStartX && uwTileX < uwEndX &&
+		uwTileY >= uwStartY && uwTileY < uwEndY
+	);
+}
+
 void terrainFlush(void) {
 	if(!s_pTileBuffer) {
 		return;
 	}
 	for(UBYTE i = 0; i < s_ubDirtyCount; ++i) {
+		if(!tileInBufferWindow(s_pDirtyX[i], s_pDirtyY[i])) {
+			continue;
+		}
 		tileBufferInvalidateTile(s_pTileBuffer, s_pDirtyX[i], s_pDirtyY[i]);
 	}
 	s_ubDirtyCount = 0;

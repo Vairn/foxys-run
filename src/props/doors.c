@@ -116,6 +116,10 @@ static UBYTE doorRectOffBuffer(const tDoor *pDoor) {
 	return 1;
 }
 
+static UWORD doorColIndex(UWORD uwX, UWORD uwY) {
+	return (UWORD)(uwX * g_uwColTilesY + uwY);
+}
+
 static void doorWriteTerrain(tDoor *pDoor, UBYTE isOpen) {
 	UWORD uwW = levelGetWidthTiles();
 	UBYTE ubI = 0;
@@ -130,11 +134,11 @@ static void doorWriteTerrain(tDoor *pDoor, UBYTE isOpen) {
 			}
 			if(isOpen) {
 				s_pTileBuffer->pTileData[x][y] = 0;
-				g_ubColMap[(x << 4) - x + y] = COL_EMPTY;
+				g_ubColMap[doorColIndex(x, y)] = COL_EMPTY;
 			}
 			else {
 				s_pTileBuffer->pTileData[x][y] = pDoor->uwOrigTile[ubI];
-				g_ubColMap[(x << 4) - x + y] = pDoor->ubOrigCol[ubI];
+				g_ubColMap[doorColIndex(x, y)] = pDoor->ubOrigCol[ubI];
 			}
 			++ubI;
 		}
@@ -153,7 +157,7 @@ static void doorSaveTerrain(tDoor *pDoor) {
 			}
 			if(x < uwW && y < levelGetHeightTiles() && s_pTileBuffer) {
 				pDoor->uwOrigTile[ubI] = s_pTileBuffer->pTileData[x][y];
-				pDoor->ubOrigCol[ubI] = g_ubColMap[(x << 4) - x + y];
+				pDoor->ubOrigCol[ubI] = g_ubColMap[doorColIndex(x, y)];
 			}
 			else {
 				pDoor->uwOrigTile[ubI] = 0;
