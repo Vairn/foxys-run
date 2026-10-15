@@ -2,6 +2,7 @@
 #define SKY_H
 
 #include <ace/utils/extview.h>
+#include <ace/managers/viewport/scrollbuffer.h>
 
 /**
  * Packed copper colour0 gradient for the playfield.
@@ -13,6 +14,12 @@
  */
 
 void skyCreate(tView *pView, const tVPort *pVPort);
+
+/** Tall maps: point the baked sky around the scroll break. Flat maps do nothing. */
+void skySync(tScrollBufferManager *pScroll);
+
+/** Put block command pointers back before the copper list is freed. */
+void skyDetach(void);
 
 /** Stop the COLOR00 stream so a palette fade is not overwritten every line. */
 void skyDisable(void);

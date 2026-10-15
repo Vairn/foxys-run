@@ -715,6 +715,7 @@ static void gameDraw(void) {
 	}
 
 	scrollBufferProcess(s_pTileBuffer->pScroll);
+	skySync(s_pTileBuffer->pScroll);
 	cameraProcess(s_pTileBuffer->pCamera);
 
 	hudProcess();
@@ -874,6 +875,7 @@ void gameGsDestroy(void) {
 	 * here and again via vPortDestroy() double-frees and crashes on level
 	 * switch — leave cleanup to vPortDestroy. */
 	s_pTileBuffer = 0;
+	skyDetach();
 	vPortDestroy(s_pVPort);
 	viewDestroy(s_pView);
 }
